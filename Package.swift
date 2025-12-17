@@ -5,9 +5,9 @@ import PackageDescription
 
 let package = Package(
     name: "Parsing",
-    platforms: [
-        .macOS(.v13)
-    ],
+    // platforms: [
+    //     .macOS(.v13)
+    // ],
     products: [
         .library(
             name: "Parsing",
