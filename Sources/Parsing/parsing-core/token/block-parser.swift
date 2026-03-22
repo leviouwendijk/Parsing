@@ -19,40 +19,83 @@ public struct BlockParser<Prefix: Sendable, Content: Sendable>: TokenParser {
     public let prefix: AnyTokenParser<Prefix?>
     public let delimiter: TokenDelimiter
     public let content: AnyTokenParser<Content>
+    public let skip: AnyTokenParser<Void>
 
     public init(
         prefix: AnyTokenParser<Prefix?>,
         delimiter: TokenDelimiter = .braces,
-        content: AnyTokenParser<Content>
+        content: AnyTokenParser<Content>,
+        skip: AnyTokenParser<Void> = AnyTokenParser<Void> { cursor in
+            .success((), cursor)
+        }
     ) {
         self.prefix = prefix
         self.delimiter = delimiter
         self.content = content
+        self.skip = skip
     }
 
     public func parse(
         _ cursor: TokenCursor
     ) -> TokenParseResult<BlockParseOutput<Prefix, Content>> {
-        switch prefix.parse(cursor) {
+        let start = consumeSkip(from: cursor)
+
+        switch prefix.parse(start) {
             case .failure(let diagnostic):
                 return .failure(diagnostic)
 
             case .success(let parsedPrefix, let afterPrefix):
-                let body = delimiter.wrap(content)
+                let beforeDelimited = consumeSkip(from: afterPrefix)
 
-                switch body.parse(afterPrefix) {
+                let wrappedContent = AnyTokenParser<Content> { cursor in
+                    let beforeContent = consumeSkip(from: cursor)
+
+                    switch content.parse(beforeContent) {
+                        case .failure(let diagnostic):
+                            return .failure(diagnostic)
+
+                        case .success(let parsedContent, let afterContent):
+                            let final = consumeSkip(from: afterContent)
+                            return .success(parsedContent, final)
+                    }
+                }
+
+                let body = delimiter.wrap(wrappedContent)
+
+                switch body.parse(beforeDelimited) {
                     case .failure(let diagnostic):
                         return .failure(diagnostic)
 
                     case .success(let parsedContent, let next):
+                        let final = consumeSkip(from: next)
+
                         return .success(
                             .init(
                                 prefix: parsedPrefix,
                                 content: parsedContent
                             ),
-                            next
+                            final
                         )
                 }
+        }
+    }
+
+    private func consumeSkip(
+        from cursor: TokenCursor
+    ) -> TokenCursor {
+        var cur = cursor
+
+        while true {
+            switch skip.parse(cur) {
+                case .success(_, let next):
+                    if next.index == cur.index {
+                        return cur
+                    }
+                    cur = next
+
+                case .failure:
+                    return cur
+            }
         }
     }
 }
@@ -60,14 +103,18 @@ public struct BlockParser<Prefix: Sendable, Content: Sendable>: TokenParser {
 public extension BlockParser {
     init(
         delimiter: TokenDelimiter = .braces,
-        content: AnyTokenParser<Content>
+        content: AnyTokenParser<Content>,
+        skip: AnyTokenParser<Void> = AnyTokenParser<Void> { cursor in
+            .success((), cursor)
+        }
     ) where Prefix == Never {
         self.init(
             prefix: AnyTokenParser<Never?> { c in
                 .success(nil, c)
             },
             delimiter: delimiter,
-            content: content
+            content: content,
+            skip: skip
         )
     }
 }
