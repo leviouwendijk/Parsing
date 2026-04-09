@@ -1,4 +1,5 @@
 import Foundation
+import Position
 
 public enum SyntaxNode: Sendable {
     case atom(String)
@@ -6,5 +7,5 @@ public enum SyntaxNode: Sendable {
     case string(String)
     case map([String: SyntaxNode])
     case list([SyntaxNode])
-    case unknown(SourceRange)
+    case unknown(PositionRange)
 }

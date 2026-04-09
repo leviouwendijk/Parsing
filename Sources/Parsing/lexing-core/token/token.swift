@@ -1,4 +1,5 @@
 import Foundation
+import Position
 
 public enum Token: Equatable, Sendable {
     // literals / identifiers
@@ -51,7 +52,7 @@ public enum Token: Equatable, Sendable {
 
     case eof
 
-    case error(String, at: SourceLocation)
+    case error(String, at: Position)
 
     // convenience text
     public func string() -> String {

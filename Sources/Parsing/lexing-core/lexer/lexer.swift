@@ -1,4 +1,5 @@
 import Foundation
+import Position
 
 public struct Lexer: Lexing {
     public let scalars: [UnicodeScalar]
@@ -189,9 +190,12 @@ public struct Lexer: Lexing {
     }
 
     @inlinable
-    public func loc(file: String? = nil, columnOverride: Int? = nil) -> SourceLocation {
-        SourceLocation(
-            file: file,
+    public func loc(
+        file: String? = nil,
+        columnOverride: Int? = nil
+    ) -> Position {
+        Position(
+            uncheckedFile: file,
             line: self.line,
             column: columnOverride ?? self.column,
             invocation: nil

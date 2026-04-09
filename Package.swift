@@ -14,9 +14,15 @@ let package = Package(
             targets: ["Parsing"]
         ),
     ],
+    dependencies: [
+        .package(url: "https://github.com/leviouwendijk/Position.git", branch: "master"),
+    ],
     targets: [
         .target(
-            name: "Parsing"
+            name: "Parsing",
+            dependencies: [
+                .product(name: "Position", package: "Position"),
+            ],
         ),
         .testTarget(
             name: "ParsingTests",

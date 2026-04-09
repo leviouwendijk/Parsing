@@ -1,13 +1,14 @@
 import Foundation
+import Position
 
 public enum LexerError: Error, LocalizedError {
-    case unexpectedEOF(context: String, at: SourceLocation)
-    case unterminated(delimiter: String, at: SourceLocation)
-    case invalidEscape(sequence: String, at: SourceLocation)
-    case invalidNumber(raw: String, at: SourceLocation)
-    case emptyIdentifier(at: SourceLocation)
-    case invalidDateLiteral(raw: String, at: SourceLocation)
-    case message(String, at: SourceLocation)
+    case unexpectedEOF(context: String, at: Position)
+    case unterminated(delimiter: String, at: Position)
+    case invalidEscape(sequence: String, at: Position)
+    case invalidNumber(raw: String, at: Position)
+    case emptyIdentifier(at: Position)
+    case invalidDateLiteral(raw: String, at: Position)
+    case message(String, at: Position)
 
     public var errorDescription: String? {
         switch self {
@@ -31,8 +32,8 @@ public enum LexerError: Error, LocalizedError {
 
 /// Optional: for token-level parsing helpers
 public enum ParserError: Error, LocalizedError {
-    case unexpectedToken(Token, expected: String, at: SourceLocation)
-    case expected(String, at: SourceLocation)
+    case unexpectedToken(Token, expected: String, at: Position)
+    case expected(String, at: Position)
     public var errorDescription: String? {
         switch self {
         case .unexpectedToken(_, let expected, let at):

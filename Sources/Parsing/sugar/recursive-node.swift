@@ -1,4 +1,5 @@
 import Foundation
+import Position
 // Open recursion (mirror of JSONValue flexibility)
 
 /// `recursiveNode` lets a caller provide a `child()` parser to enable recursion.
@@ -48,7 +49,10 @@ public func recursiveNode(
               !t.sameCase(as: .right_bracket) {
             cur.advance()
         }
-        let range = SourceRange(start, cur.index)
+        let range = PositionRange(
+            uncheckedStart: .init(start),
+            uncheckedEnd: .init(cur.index)
+        )
         return .success(.unknown(range), cur)
     })
 }

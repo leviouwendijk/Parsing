@@ -1,4 +1,5 @@
 import Foundation
+import Position
 
 public enum SyncBoundary: Sendable { case semicolon, newline, rbrace, rbracket }
 
@@ -19,7 +20,10 @@ public func recoverUntil(
             }
             cur.advance()
         }
-        let r = SourceRange(start, cur.index)
+        let r = PositionRange(
+            uncheckedStart: .init(start),
+            uncheckedEnd: .init(cur.index)
+        )
         return .failure(Diagnostic(message, range: r))
     }
 }

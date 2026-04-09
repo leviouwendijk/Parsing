@@ -1,4 +1,5 @@
 import Foundation
+import Position
 
 // Sources/Parsers/lexing-core/token/token-cursor.swift
 public struct TokenCursor: Sendable {
@@ -20,9 +21,23 @@ public struct TokenCursor: Sendable {
     @inlinable public func mark() -> Int { index }
     @inlinable public mutating func restore(_ m: Int) { index = m }
 
-    // New: provide a SourceLocation for *current* token (column=1 fallback).
-    public func loc(column: Int = 1) -> SourceLocation? {
-        guard let lm = lineMap, index < lm.count else { return nil }
-        return SourceLocation(file: filePath, line: lm[index], column: column, invocation: nil)
+    // // New: provide a SourceLocation for *current* token (column=1 fallback).
+    // public func loc(column: Int = 1) -> SourceLocation? {
+    //     guard let lm = lineMap, index < lm.count else { return nil }
+    //     return SourceLocation(file: filePath, line: lm[index], column: column, invocation: nil)
+    // }
+    public func loc(
+        column: Int = 1
+    ) -> Position? {
+        guard let lm = lineMap, index < lm.count else {
+            return nil
+        }
+
+        return Position(
+            uncheckedFile: filePath,
+            line: lm[index],
+            column: column,
+            invocation: nil
+        )
     }
 }

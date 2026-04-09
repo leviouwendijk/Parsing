@@ -12,7 +12,12 @@ public struct Char: Parser {
     public func parse(_ c: Cursor) -> ParseResult<Character> {
         var cur = c
         guard let ch = cur.peek(), predicate(ch) else {
-            return .failure(Diagnostic("expected \(want)", range: SourceRange(c.offset, c.offset)))
+            return .failure(
+                Diagnostic(
+                    "expected \(want)",
+                    range: .point(c.offset)
+                )
+            )
         }
         cur.advance()
         return .success(ch, cur)

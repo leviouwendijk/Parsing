@@ -1,4 +1,5 @@
 import Foundation
+import Position
 
 public struct Cursor: Sendable {
     public let input: String
@@ -33,7 +34,17 @@ public struct Cursor: Sendable {
         String(input[start..<index])
     }
 
-    public func range(from start: String.Index) -> SourceRange {
-        SourceRange(input.distance(from: input.startIndex, to: start), offset)
+    // public func range(from start: String.Index) -> SourceRange {
+    //     SourceRange(input.distance(from: input.startIndex, to: start), offset)
+    // }
+    public func range(
+        from start: String.Index
+    ) -> PositionRange {
+        PositionRange(
+            uncheckedStart: .init(
+                input.distance(from: input.startIndex, to: start)
+            ),
+            uncheckedEnd: .init(offset)
+        )
     }
 }
