@@ -82,16 +82,35 @@ public extension TokenParser {
     }
 
     @inlinable
-    func many(min: Int = 0) -> AnyTokenParser<[Output]> {
+    func many(
+        min: Int = 0
+    ) -> AnyTokenParser<[Output]> {
         AnyTokenParser<[Output]> { c in
-            var cur = c, acc: [Output] = []
+            var cur = c
+            var acc: [Output] = []
+
             while true {
                 switch self.parse(cur) {
-                case .success(let o, let next): acc.append(o); cur = next
+                case .success(let output, let next):
+                    guard next.index != cur.index else {
+                        return .failure(
+                            Diagnostic(
+                                "repeated parser did not consume input"
+                            )
+                        )
+                    }
+
+                    acc.append(output)
+                    cur = next
+
                 case .failure:
                     return acc.count >= min
-                    ? .success(acc, cur)
-                    : .failure(Diagnostic("expected at least \(min) occurrence(s)"))
+                        ? .success(acc, cur)
+                        : .failure(
+                            Diagnostic(
+                                "expected at least \(min) occurrence(s)"
+                            )
+                        )
                 }
             }
         }

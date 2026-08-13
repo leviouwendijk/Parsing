@@ -1,4 +1,5 @@
 import Foundation
+import Position
 
 public enum ParseResult<T: Sendable> {
     case success(T, Cursor)
@@ -73,17 +74,36 @@ public extension Parser {
     }
 
     @inlinable
-    func many(min: Int = 0) -> AnyParser<[Output]> {
+    func many(
+        min: Int = 0
+    ) -> AnyParser<[Output]> {
         AnyParser<[Output]> { c in
             var cur = c
             var acc: [Output] = []
+
             while true {
                 switch self.parse(cur) {
-                case .success(let o, let next): acc.append(o); cur = next
+                case .success(let output, let next):
+                    guard next.offset != cur.offset else {
+                        return .failure(
+                            Diagnostic(
+                                "repeated parser did not consume input",
+                                range: .point(cur.offset)
+                            )
+                        )
+                    }
+
+                    acc.append(output)
+                    cur = next
+
                 case .failure:
                     return acc.count >= min
-                    ? .success(acc, cur)
-                    : .failure(Diagnostic("expected at least \(min) occurrence(s)"))
+                        ? .success(acc, cur)
+                        : .failure(
+                            Diagnostic(
+                                "expected at least \(min) occurrence(s)"
+                            )
+                        )
                 }
             }
         }
@@ -159,19 +179,47 @@ public struct OptionalP<P: Parser>: Parser {
 
 public struct Many<P: Parser>: Parser {
     public typealias Output = [P.Output]
+
     public let p: P
     public let min: Int
-    public init(_ p: P, min: Int) { self.p = p; self.min = min }
-    public func parse(_ c: Cursor) -> ParseResult<[P.Output]> {
+
+    public init(
+        _ p: P,
+        min: Int
+    ) {
+        self.p = p
+        self.min = min
+    }
+
+    public func parse(
+        _ c: Cursor
+    ) -> ParseResult<[P.Output]> {
         var cur = c
         var acc: [P.Output] = []
+
         while true {
             switch p.parse(cur) {
-            case .success(let out, let next): acc.append(out); cur = next
+            case .success(let output, let next):
+                guard next.offset != cur.offset else {
+                    return .failure(
+                        Diagnostic(
+                            "repeated parser did not consume input",
+                            range: .point(cur.offset)
+                        )
+                    )
+                }
+
+                acc.append(output)
+                cur = next
+
             case .failure:
                 return acc.count >= min
-                ? .success(acc, cur)
-                : .failure(Diagnostic("expected at least \(min) occurrence(s)"))
+                    ? .success(acc, cur)
+                    : .failure(
+                        Diagnostic(
+                            "expected at least \(min) occurrence(s)"
+                        )
+                    )
             }
         }
     }
