@@ -1,5 +1,5 @@
 {
-  "originHash" : "cdc8f4a3f2bfdffd6b2ab45cae7ad69ebc028e08b7974cbb9e94b185881b7c46",
+  "originHash" : "0623c1f0a48c3ea4ad9ad3fc0dd2befe63a92148a2cb073193d00e820bde7bb8",
   "pins" : [
     {
       "identity" : "position",
@@ -7,7 +7,7 @@
       "location" : "https://github.com/leviouwendijk/Position.git",
       "state" : {
         "branch" : "master",
-        "revision" : "70fd78230c3452d9a4471222d64324a2c084351d"
+        "revision" : "c80214283130c1bd4fc1c54dd5f3c574e3e4986c"
       }
     }
   ],

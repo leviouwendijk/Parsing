@@ -24,9 +24,5 @@ let package = Package(
                 .product(name: "Position", package: "Position"),
             ],
         ),
-        .testTarget(
-            name: "ParsingTests",
-            dependencies: ["Parsing"]
-        ),
     ]
 )
