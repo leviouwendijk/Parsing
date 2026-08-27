@@ -1,15 +1,17 @@
 import Foundation
 import Position
 
-public struct Lexer: Lexing {
+public struct Lexer: Lexing, PositionedLexing {
+    public let source: String
     public let scalars: [UnicodeScalar]
     public var index: Int = 0
     public var line: Int = 1
     public var column: Int = 1
-
     public var string_block_state: LexStringBlockState = .none
 
     private var activeBlockPolicy: BlockStringPolicy? = nil
+    private let scalarBoundaryStartCharacterOffsets: [Int]
+    private let scalarBoundaryEndCharacterOffsets: [Int]
 
     public let sets: LexingSets
     public let options: LexerOptions
@@ -21,171 +23,231 @@ public struct Lexer: Lexing {
         options: LexerOptions = .init(),
         config: LexerConfig = .init()
     ) {
+        self.source = source
         self.scalars = Array(source.unicodeScalars)
+
+        let offsets = Self.characterOffsetsByScalarBoundary(source)
+        self.scalarBoundaryStartCharacterOffsets = offsets.start
+        self.scalarBoundaryEndCharacterOffsets = offsets.end
         self.sets = sets
         self.options = options
         self.config = config
     }
 
+    public mutating func nextLexedToken() -> LexedToken {
+        nextLexeme()
+    }
+
     public mutating func nextToken() -> Token {
+        nextLexeme().token
+    }
+
+    private mutating func nextLexeme() -> LexedToken {
         switch string_block_state {
         case .awaitingOpen:
-            // Consume trivia as you already do
             while true {
-                if let ws = readWhitespaceRun() {
-                    if options.emit_whitespace { return .whitespace(ws) }; continue
+                let start = index
+                if let whitespace = readWhitespaceRun() {
+                    if options.emit_whitespace {
+                        return emitted(.whitespace(whitespace), fromScalarBoundary: start)
+                    }
+                    continue
                 }
+
+                let newlineStart = index
                 if readNormalizedNewline(options.normalize_newlines) {
-                    if options.emit_newlines { return .newline }; continue
+                    if options.emit_newlines {
+                        return emitted(.newline, fromScalarBoundary: newlineStart)
+                    }
+                    continue
                 }
-                if let cmt = readComment(options.comments) {
-                    if options.emit_comments { return cmt }; continue
+
+                let commentStart = index
+                if let comment = readComment(options.comments) {
+                    if options.emit_comments {
+                        return emitted(comment, fromScalarBoundary: commentStart)
+                    }
+                    continue
                 }
+
                 break
             }
 
-            let p = activeBlockPolicy ?? options.block_string_policies.fallback
-            guard match(p.delimiter.start) else { return .eof }  // <-- match advances on success
+            let policy = activeBlockPolicy ?? options.block_string_policies.fallback
+            let start = index
+            guard match(policy.delimiter.start) else {
+                return emitted(.eof, fromScalarBoundary: start)
+            }
+
             string_block_state = .awaitingContent
-            return leftToken(for: p.delimiter)   // see helper below
+            return emitted(leftToken(for: policy.delimiter), fromScalarBoundary: start)
 
         case .awaitingContent:
-            let p = activeBlockPolicy ?? options.block_string_policies.fallback
-            let text = readUntilClosing(delimiter: p.delimiter, options: p.options)
+            let policy = activeBlockPolicy ?? options.block_string_policies.fallback
+            let start = index
+            let text = readUntilClosing(
+                delimiter: policy.delimiter,
+                options: policy.options
+            )
             string_block_state = .awaitingClose
-            return .string(text)
+            return emitted(.string(text), fromScalarBoundary: start)
 
         case .awaitingClose:
             while true {
-                if let ws = readWhitespaceRun() {
-                    if options.emit_whitespace { return .whitespace(ws) }; continue
+                let start = index
+                if let whitespace = readWhitespaceRun() {
+                    if options.emit_whitespace {
+                        return emitted(.whitespace(whitespace), fromScalarBoundary: start)
+                    }
+                    continue
                 }
+
+                let newlineStart = index
                 if readNormalizedNewline(options.normalize_newlines) {
-                    if options.emit_newlines { return .newline }; continue
+                    if options.emit_newlines {
+                        return emitted(.newline, fromScalarBoundary: newlineStart)
+                    }
+                    continue
                 }
-                if let cmt = readComment(options.comments) {
-                    if options.emit_comments { return cmt }; continue
+
+                let commentStart = index
+                if let comment = readComment(options.comments) {
+                    if options.emit_comments {
+                        return emitted(comment, fromScalarBoundary: commentStart)
+                    }
+                    continue
                 }
+
                 break
             }
-            let p = activeBlockPolicy ?? options.block_string_policies.fallback
-            guard match(p.delimiter.end) else { return .eof }    // <-- eat matching closer
+
+            let policy = activeBlockPolicy ?? options.block_string_policies.fallback
+            let start = index
+            guard match(policy.delimiter.end) else {
+                return emitted(.eof, fromScalarBoundary: start)
+            }
+
             string_block_state = .none
-            defer { activeBlockPolicy = nil }                    // clear for next time
-            return rightToken(for: p.delimiter)
+            defer { activeBlockPolicy = nil }
+            return emitted(rightToken(for: policy.delimiter), fromScalarBoundary: start)
 
         case .none:
             break
         }
 
-        // Trivia handling (options-driven)
-        if let ws = readWhitespaceRun() {
-            if options.emit_whitespace { return .whitespace(ws) }
-            // else fall through to keep scanning
+        let whitespaceStart = index
+        if let whitespace = readWhitespaceRun(), options.emit_whitespace {
+            return emitted(.whitespace(whitespace), fromScalarBoundary: whitespaceStart)
         }
 
-        if readNormalizedNewline(options.normalize_newlines) {
-            if options.emit_newlines { return .newline }
-            // else keep scanning
+        let newlineStart = index
+        if readNormalizedNewline(options.normalize_newlines), options.emit_newlines {
+            return emitted(.newline, fromScalarBoundary: newlineStart)
         }
 
-        if let cmt = readComment(options.comments) {
-            if options.emit_comments { return cmt }
-            // else keep scanning
+        let commentStart = index
+        if let comment = readComment(options.comments), options.emit_comments {
+            return emitted(comment, fromScalarBoundary: commentStart)
         }
 
-        // Fast-path date literal
-        if let lit = scanDateLiteral() { return .date_literal(lit) }
+        let dateStart = index
+        if let literal = scanDateLiteral() {
+            return emitted(.date_literal(literal), fromScalarBoundary: dateStart)
+        }
 
-        // End of input?
-        guard let c = peek() else { return .eof }
+        let start = index
+        guard let scalar = peek() else {
+            return emitted(.eof, fromScalarBoundary: start)
+        }
 
-        // Quoted string (outside block mode): "...."
-        if c == "\"" {
+        if scalar == "\"" {
             advance()
-            return .string(readQuotedLiteral())
+            return emitted(.string(readQuotedLiteral()), fromScalarBoundary: start)
         }
 
-        // Punctuation & symbols
-        switch c {
-        case "{": advance(); return .left_brace
-        case "}": advance(); return .right_brace
-        case "(": advance(); return .left_parenthesis
-        case ")": advance(); return .right_parenthesis
-        case "[": advance(); return .left_bracket
-        case "]": advance(); return .right_bracket
+        switch scalar {
+        case "{": advance(); return emitted(.left_brace, fromScalarBoundary: start)
+        case "}": advance(); return emitted(.right_brace, fromScalarBoundary: start)
+        case "(": advance(); return emitted(.left_parenthesis, fromScalarBoundary: start)
+        case ")": advance(); return emitted(.right_parenthesis, fromScalarBoundary: start)
+        case "[": advance(); return emitted(.left_bracket, fromScalarBoundary: start)
+        case "]": advance(); return emitted(.right_bracket, fromScalarBoundary: start)
         case "-":
-            if peek(aheadBy: 1) == ">" { advance(); advance(); return .arrow }
-        case "<": advance(); return .less_than
-        case ">": advance(); return .greater_than
-        case ".": advance(); return .dot
-        case "=": advance(); return .equals
-        case ",": advance(); return .comma
-        case "#": advance(); return .hash
-        case "$": advance(); return .dollar
-        case "/": advance(); return .forward_slash
-        case "\\": advance(); return .backward_slash
-        case "'": advance(); return .single_quote
-        case "\"": advance(); return .double_quote // (unreachable here because we handle strings above)
-        case "@": advance(); return .at
-        case "%": advance(); return .percent
-        case "*": advance(); return .asterisk
-        case "&": advance(); return .ampersand
-        case "+": advance(); return .plus
-        case "_": advance(); return .underscore
-        case "~": advance(); return .tilde
-        case ":": advance(); return .colon
-        case ";": advance(); return .semicolon
-        case "|": advance(); return .pipe
+            if peek(aheadBy: 1) == ">" {
+                advance(); advance()
+                return emitted(.arrow, fromScalarBoundary: start)
+            }
+        case "<": advance(); return emitted(.less_than, fromScalarBoundary: start)
+        case ">": advance(); return emitted(.greater_than, fromScalarBoundary: start)
+        case ".": advance(); return emitted(.dot, fromScalarBoundary: start)
+        case "=": advance(); return emitted(.equals, fromScalarBoundary: start)
+        case ",": advance(); return emitted(.comma, fromScalarBoundary: start)
+        case "#": advance(); return emitted(.hash, fromScalarBoundary: start)
+        case "$": advance(); return emitted(.dollar, fromScalarBoundary: start)
+        case "/": advance(); return emitted(.forward_slash, fromScalarBoundary: start)
+        case "\\": advance(); return emitted(.backward_slash, fromScalarBoundary: start)
+        case "'": advance(); return emitted(.single_quote, fromScalarBoundary: start)
+        case "\"": advance(); return emitted(.double_quote, fromScalarBoundary: start)
+        case "@": advance(); return emitted(.at, fromScalarBoundary: start)
+        case "%": advance(); return emitted(.percent, fromScalarBoundary: start)
+        case "*": advance(); return emitted(.asterisk, fromScalarBoundary: start)
+        case "&": advance(); return emitted(.ampersand, fromScalarBoundary: start)
+        case "+": advance(); return emitted(.plus, fromScalarBoundary: start)
+        case "_": advance(); return emitted(.underscore, fromScalarBoundary: start)
+        case "~": advance(); return emitted(.tilde, fromScalarBoundary: start)
+        case ":": advance(); return emitted(.colon, fromScalarBoundary: start)
+        case ";": advance(); return emitted(.semicolon, fromScalarBoundary: start)
+        case "|": advance(); return emitted(.pipe, fromScalarBoundary: start)
         default: break
         }
 
-        // Number
-        if CharacterSet.decimalDigits.contains(c) {
-            let (raw, val) = readNumberRawAndValue()
-            return .number(val, raw: raw)
+        if CharacterSet.decimalDigits.contains(scalar) {
+            let (raw, value) = readNumberRawAndValue()
+            return emitted(.number(value, raw: raw), fromScalarBoundary: start)
         }
 
-        // Identifier / Keyword / String-block trigger
-        if CharacterSet.letters.union(CharacterSet(charactersIn: "_")).contains(c) {
-            let ident = readIdent()
-            if sets.stringBlockKeywords.contains(ident) {
-                // pick policy for this keyword
-                activeBlockPolicy = options.block_string_policies.policy(for: ident)
+        if CharacterSet.letters
+            .union(CharacterSet(charactersIn: "_"))
+            .contains(scalar)
+        {
+            let identifier = readIdent()
+
+            if sets.stringBlockKeywords.contains(identifier) {
+                activeBlockPolicy = options.block_string_policies.policy(for: identifier)
                 string_block_state = .awaitingOpen
-                return .keyword(ident)
-            } else if sets.keywords.contains(ident) {
-                return .keyword(ident)
-            } else {
-                if sets.idents.contains(ident) { return .identifier(ident) }
-                return .identifier(ident)
+                return emitted(.keyword(identifier), fromScalarBoundary: start)
             }
+
+            if sets.keywords.contains(identifier) {
+                return emitted(.keyword(identifier), fromScalarBoundary: start)
+            }
+
+            return emitted(.identifier(identifier), fromScalarBoundary: start)
         }
 
-        // Fallback: consume one scalar and continue
         advance()
-        return nextToken()
+        return nextLexeme()
     }
 
     @inline(__always)
-    private func leftToken(for d: Delimiter) -> Token {
-        switch d.start {
+    private func leftToken(for delimiter: Delimiter) -> Token {
+        switch delimiter.start {
         case "{": return .left_brace
         case "[": return .left_bracket
         case "(": return .left_parenthesis
         case "<": return .less_than
-        default:  return .left_brace // sensible default for now
+        default: return .left_brace
         }
     }
 
     @inline(__always)
-    private func rightToken(for d: Delimiter) -> Token {
-        switch d.end {
+    private func rightToken(for delimiter: Delimiter) -> Token {
+        switch delimiter.end {
         case "}": return .right_brace
         case "]": return .right_bracket
         case ")": return .right_parenthesis
         case ">": return .greater_than
-        default:  return .right_brace
+        default: return .right_brace
         }
     }
 
@@ -196,22 +258,80 @@ public struct Lexer: Lexing {
     ) -> Position {
         Position(
             uncheckedFile: file,
-            line: self.line,
-            column: columnOverride ?? self.column,
+            line: line,
+            column: columnOverride ?? column,
             invocation: nil
         )
     }
 
     @inline(__always)
-    mutating func error(_ msg: String) throws -> Token {
-        let loc = loc()
+    mutating func error(_ message: String) throws -> Token {
+        let location = loc()
+
         switch config.errorStrategy {
         case .throwing:
-            throw LexerError.message(msg, at: loc)
+            throw LexerError.message(message, at: location)
         case .error_token:
-            return .error(msg, at: loc)
+            return .error(message, at: location)
         case .diagnose_only(let sink):
-            sink(msg, loc); return .eof
+            sink(message, location)
+            return .eof
         }
+    }
+}
+
+private extension Lexer {
+    func emitted(
+        _ token: Token,
+        fromScalarBoundary start: Int
+    ) -> LexedToken {
+        LexedToken(
+            token: token,
+            range: PositionRange(
+                uncheckedStart: .init(
+                    characterStartOffset(atScalarBoundary: start)
+                ),
+                uncheckedEnd: .init(
+                    characterEndOffset(atScalarBoundary: index)
+                )
+            )
+        )
+    }
+
+    func characterStartOffset(atScalarBoundary boundary: Int) -> Int {
+        let clamped = min(max(0, boundary), scalarBoundaryStartCharacterOffsets.count - 1)
+        return scalarBoundaryStartCharacterOffsets[clamped]
+    }
+
+    func characterEndOffset(atScalarBoundary boundary: Int) -> Int {
+        let clamped = min(max(0, boundary), scalarBoundaryEndCharacterOffsets.count - 1)
+        return scalarBoundaryEndCharacterOffsets[clamped]
+    }
+
+    static func characterOffsetsByScalarBoundary(
+        _ source: String
+    ) -> (start: [Int], end: [Int]) {
+        let scalarCount = source.unicodeScalars.count
+        var starts = Array(repeating: 0, count: scalarCount + 1)
+        var ends = starts
+        var scalarOffset = 0
+        var characterOffset = 0
+
+        for character in source {
+            let count = character.unicodeScalars.count
+
+            for innerOffset in 0..<count {
+                let boundary = scalarOffset + innerOffset
+                starts[boundary] = characterOffset
+                ends[boundary] = innerOffset == 0 ? characterOffset : characterOffset + 1
+            }
+
+            scalarOffset += count
+            characterOffset += 1
+            starts[scalarOffset] = characterOffset
+            ends[scalarOffset] = characterOffset
+        }
+
+        return (starts, ends)
     }
 }

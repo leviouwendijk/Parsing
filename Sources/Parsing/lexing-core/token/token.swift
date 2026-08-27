@@ -1,7 +1,7 @@
 import Foundation
 import Position
 
-public enum Token: Equatable, Sendable {
+public enum Token: Equatable, Sendable, Codable, Hashable {
     // literals / identifiers
     case keyword(String)             // e.g. entry, debit, credit, details
     case identifier(String)          // e.g. entity, account, levi_ouwendijk

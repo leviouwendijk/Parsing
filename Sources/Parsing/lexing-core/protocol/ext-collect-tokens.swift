@@ -2,24 +2,40 @@ import Foundation
 
 public extension Lexing {
     mutating func collectAllTokens() -> [Token] {
-        var toks: [Token] = []
+        var tokens: [Token] = []
+
         while true {
-            let t = nextToken()
-            toks.append(t)
-            if t == .eof { break }
+            let token = nextToken()
+            tokens.append(token)
+
+            if token == .eof {
+                return tokens
+            }
         }
-        return toks
     }
 
+    @available(
+        *,
+        deprecated,
+        message: "Use lexedTokens() on PositionedLexing. LexedToken keeps Token and PositionRange together."
+    )
     mutating func collectAllTokensWithLineMap() -> ([Token], [Int]) {
-        var toks: [Token] = []; var lines: [Int] = []
-        index = 0; line = 1; column = 1
+        var tokens: [Token] = []
+        var lines: [Int] = []
+
+        index = 0
+        line = 1
+        column = 1
+
         while true {
-            let l0 = line
-            let t = nextToken()
-            toks.append(t); lines.append(l0)
-            if t == .eof { break }
+            let tokenLine = line
+            let token = nextToken()
+            tokens.append(token)
+            lines.append(tokenLine)
+
+            if token == .eof {
+                return (tokens, lines)
+            }
         }
-        return (toks, lines)
     }
 }

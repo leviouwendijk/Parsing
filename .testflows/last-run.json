@@ -1,0 +1,93 @@
+{
+  "failed" : 0,
+  "failed_names" : [
+
+  ],
+  "generated_at" : "2026-08-27T22:34:47Z",
+  "passed" : 7,
+  "results" : [
+    {
+      "display_name" : "lexical-provenance",
+      "duration_seconds" : 0.0021981000900268555,
+      "name" : "lexical-provenance",
+      "status" : "passed",
+      "tags" : [
+        "lexer",
+        "position",
+        "unicode"
+      ]
+    },
+    {
+      "display_name" : "token-cursor-provenance",
+      "duration_seconds" : 0.00037789344787597656,
+      "name" : "token-cursor-provenance",
+      "status" : "passed",
+      "tags" : [
+        "cursor",
+        "position",
+        "range"
+      ]
+    },
+    {
+      "display_name" : "token-codable",
+      "duration_seconds" : 0.0005919933319091797,
+      "name" : "token-codable",
+      "status" : "passed",
+      "tags" : [
+        "codable",
+        "lexed-token",
+        "token"
+      ]
+    },
+    {
+      "display_name" : "token-compatibility",
+      "duration_seconds" : 0.00037300586700439453,
+      "name" : "token-compatibility",
+      "status" : "passed",
+      "tags" : [
+        "compatibility",
+        "cursor",
+        "lexer"
+      ]
+    },
+    {
+      "display_name" : "structured-parser",
+      "duration_seconds" : 0.00047004222869873047,
+      "name" : "structured-parser",
+      "status" : "passed",
+      "tags" : [
+        "codable",
+        "position",
+        "structured"
+      ]
+    },
+    {
+      "display_name" : "structured-parser-scanning",
+      "duration_seconds" : 0.00022494792938232422,
+      "name" : "structured-parser-scanning",
+      "status" : "passed",
+      "tags" : [
+        "cardinality",
+        "scan",
+        "structured",
+        "unicode"
+      ]
+    },
+    {
+      "display_name" : "structured-parser-grammar",
+      "duration_seconds" : 0.00045990943908691406,
+      "name" : "structured-parser-grammar",
+      "status" : "passed",
+      "tags" : [
+        "balanced",
+        "grammar",
+        "reference",
+        "structured",
+        "unicode"
+      ]
+    }
+  ],
+  "skipped" : 0,
+  "title" : "Parsing flow tests",
+  "total" : 7
+}
