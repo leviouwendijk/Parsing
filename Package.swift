@@ -15,12 +15,12 @@ let package = Package(
         ),
         .executable(
             name: "parsingtest",
-            targets: ["ParsingTestFlows"]
+            targets: ["ParsingTests"]
         ),
     ],
     dependencies: [
         .package(url: "https://github.com/leviouwendijk/Position.git", branch: "master"),
-        .package(url: "https://github.com/leviouwendijk/TestFlows.git", branch: "master"),
+        .package(url: "https://github.com/leviouwendijk/Testing.git", branch: "master"),
     ],
     targets: [
         .target(
@@ -30,12 +30,40 @@ let package = Package(
             ]
         ),
         .executableTarget(
-            name: "ParsingTestFlows",
+            name: "ParsingTests",
             dependencies: [
                 "Parsing",
                 .product(name: "Position", package: "Position"),
-                .product(name: "TestFlows", package: "TestFlows"),
-            ]
+                .product(name: "Testing", package: "Testing"),
+            ],
+            path: "Testing/ParsingTests"
         ),
     ]
 )
+
+for target in package.targets {
+    switch target.type {
+    case .regular, .executable, .test, .macro:
+        var settings = target.swiftSettings ?? []
+
+        settings.append(
+            .treatAllWarnings(as: .error)
+        )
+
+        settings.append(
+            .unsafeFlags(
+                [
+                    "-continue-building-after-errors"
+                ]
+            )
+        )
+
+        target.swiftSettings = settings
+
+    case .plugin, .system, .binary:
+        break
+
+    @unknown default:
+        break
+    }
+}

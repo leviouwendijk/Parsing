@@ -1,6 +1,13 @@
 import Foundation
 
 public struct LexerOptions: Sendable {
+    public enum IdentifierContinuation: Sendable {
+        case dotted_hyphenated
+        case punctuation_delimited
+    }
+
+    public var identifier_continuation: IdentifierContinuation = .dotted_hyphenated
+
     // Trivia emission
     public var emit_whitespace: Bool = false
     public var emit_newlines: Bool = true

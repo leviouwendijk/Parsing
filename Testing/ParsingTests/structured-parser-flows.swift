@@ -1,14 +1,14 @@
 import Foundation
 import Parsing
-import TestFlows
+import Testing
 
-extension ParsingFlowSuite {
-    static var structuredParserFlow: TestFlow {
-        TestFlow(
+extension ParsingTestSuite {
+    static var structuredParserSuite: TestSuite {
+        TestSuite(
             "structured-parser",
             tags: ["structured", "codable", "position"]
         ) {
-            Step("specification round-trips as a manufacturable value") {
+            Test("specification round-trips as a manufacturable value") {
                 let specification = fixtureSpecification()
                 let encoded = try JSONEncoder().encode(specification)
                 let decoded = try JSONDecoder().decode(
@@ -23,7 +23,7 @@ extension ParsingFlowSuite {
                 )
             }
 
-            Step("compiled specification returns exact match and capture ranges") {
+            Test("compiled specification returns exact match and capture ranges") {
                 let compiled = try fixtureSpecification().compile()
                 let match = try Expect.notNil(
                     compiled.match("user=Levi!?"),
@@ -78,7 +78,7 @@ extension ParsingFlowSuite {
                 )
             }
 
-            Step("validation rejects repetition that cannot make progress") {
+            Test("validation rejects repetition that cannot make progress") {
                 let invalid = StructuredParser.Specification.repetition(
                     specification: .optional(
                         .literal("x")

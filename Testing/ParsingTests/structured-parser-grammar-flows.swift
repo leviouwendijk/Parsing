@@ -1,14 +1,14 @@
 import Foundation
 import Parsing
-import TestFlows
+import Testing
 
-extension ParsingFlowSuite {
-    static var structuredParserGrammarFlow: TestFlow {
-        TestFlow(
+extension ParsingTestSuite {
+    static var structuredParserGrammarSuite: TestSuite {
+        TestSuite(
             "structured-parser-grammar",
             tags: ["structured", "grammar", "balanced", "reference", "unicode"]
         ) {
-            Step("grammar round-trips and resolves reusable named references") {
+            Test("grammar round-trips and resolves reusable named references") {
                 let grammar = referenceGrammar()
                 let encoded = try JSONEncoder().encode(grammar)
                 let decoded = try JSONDecoder().decode(
@@ -54,7 +54,7 @@ extension ParsingFlowSuite {
                 )
             }
 
-            Step("balanced consumes nested delimiters with Character offsets") {
+            Test("balanced consumes nested delimiters with Character offsets") {
                 let compiled = try StructuredParser.Specification
                     .sequence(
                         [
@@ -106,7 +106,7 @@ extension ParsingFlowSuite {
                 )
             }
 
-            Step("grammar rejects missing and duplicate definitions") {
+            Test("grammar rejects missing and duplicate definitions") {
                 var missingRejected = false
 
                 do {
@@ -154,7 +154,7 @@ extension ParsingFlowSuite {
                 )
             }
 
-            Step("grammar rejects recursive reference graphs") {
+            Test("grammar rejects recursive reference graphs") {
                 let grammar = StructuredParser.Grammar(
                     root: .reference("a"),
                     definitions: [
@@ -185,7 +185,7 @@ extension ParsingFlowSuite {
                 )
             }
 
-            Step("references require grammar scope and balanced delimiters are validated") {
+            Test("references require grammar scope and balanced delimiters are validated") {
                 var standaloneRejected = false
 
                 do {

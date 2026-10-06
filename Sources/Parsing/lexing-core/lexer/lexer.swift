@@ -177,6 +177,9 @@ public struct Lexer: Lexing, PositionedLexing {
                 advance(); advance()
                 return emitted(.arrow, fromScalarBoundary: start)
             }
+
+            advance()
+            return emitted(.dash, fromScalarBoundary: start)
         case "<": advance(); return emitted(.less_than, fromScalarBoundary: start)
         case ">": advance(); return emitted(.greater_than, fromScalarBoundary: start)
         case ".": advance(); return emitted(.dot, fromScalarBoundary: start)

@@ -3,12 +3,12 @@
   "failed_names" : [
 
   ],
-  "generated_at" : "2026-08-27T22:34:47Z",
+  "generated_at" : "2026-10-06T19:55:44Z",
   "passed" : 7,
   "results" : [
     {
       "display_name" : "lexical-provenance",
-      "duration_seconds" : 0.0021981000900268555,
+      "duration_seconds" : 0.004551053047180176,
       "name" : "lexical-provenance",
       "status" : "passed",
       "tags" : [
@@ -19,7 +19,7 @@
     },
     {
       "display_name" : "token-cursor-provenance",
-      "duration_seconds" : 0.00037789344787597656,
+      "duration_seconds" : 0.0008869171142578125,
       "name" : "token-cursor-provenance",
       "status" : "passed",
       "tags" : [
@@ -30,7 +30,7 @@
     },
     {
       "display_name" : "token-codable",
-      "duration_seconds" : 0.0005919933319091797,
+      "duration_seconds" : 0.0015370845794677734,
       "name" : "token-codable",
       "status" : "passed",
       "tags" : [
@@ -41,7 +41,7 @@
     },
     {
       "display_name" : "token-compatibility",
-      "duration_seconds" : 0.00037300586700439453,
+      "duration_seconds" : 0.0008999109268188477,
       "name" : "token-compatibility",
       "status" : "passed",
       "tags" : [
@@ -52,7 +52,7 @@
     },
     {
       "display_name" : "structured-parser",
-      "duration_seconds" : 0.00047004222869873047,
+      "duration_seconds" : 0.0014200210571289062,
       "name" : "structured-parser",
       "status" : "passed",
       "tags" : [
@@ -63,7 +63,7 @@
     },
     {
       "display_name" : "structured-parser-scanning",
-      "duration_seconds" : 0.00022494792938232422,
+      "duration_seconds" : 0.0006920099258422852,
       "name" : "structured-parser-scanning",
       "status" : "passed",
       "tags" : [
@@ -75,7 +75,7 @@
     },
     {
       "display_name" : "structured-parser-grammar",
-      "duration_seconds" : 0.00045990943908691406,
+      "duration_seconds" : 0.0006960630416870117,
       "name" : "structured-parser-grammar",
       "status" : "passed",
       "tags" : [

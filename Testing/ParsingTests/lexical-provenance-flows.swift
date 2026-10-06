@@ -1,15 +1,15 @@
 import Foundation
 import Parsing
 import Position
-import TestFlows
+import Testing
 
-extension ParsingFlowSuite {
-    static var lexicalProvenanceFlow: TestFlow {
-        TestFlow(
+extension ParsingTestSuite {
+    static var lexicalProvenanceSuite: TestSuite {
+        TestSuite(
             "lexical-provenance",
             tags: ["lexer", "position", "unicode"]
         ) {
-            Step("positioned lexing uses Character offsets and excludes skipped trivia") {
+            Test("positioned lexing uses Character offsets and excludes skipped trivia") {
                 let source = "alpha 👨‍👩‍👧‍👦 beta"
                 var lexer = Lexer(
                     source: source,
@@ -33,15 +33,58 @@ extension ParsingFlowSuite {
                     "lexical Character end offsets"
                 )
             }
+
+            Test("identifier continuation policy preserves defaults and can expose punctuation") {
+                let source = "foo.bar foo-bar"
+
+                var defaultLexer = Lexer(
+                    source: source,
+                    sets: LexingSets(keywords: [])
+                )
+                let defaultTokens = defaultLexer.lexedTokens().map(\.token)
+
+                var punctuationOptions = LexerOptions()
+                punctuationOptions.identifier_continuation = .punctuation_delimited
+
+                var punctuationLexer = Lexer(
+                    source: source,
+                    sets: LexingSets(keywords: []),
+                    options: punctuationOptions
+                )
+                let punctuationTokens = punctuationLexer.lexedTokens().map(\.token)
+
+                try Expect.equal(
+                    defaultTokens,
+                    [
+                        .identifier("foo.bar"),
+                        .identifier("foo-bar"),
+                        .eof,
+                    ],
+                    "default identifier continuation remains dotted and hyphenated"
+                )
+                try Expect.equal(
+                    punctuationTokens,
+                    [
+                        .identifier("foo"),
+                        .dot,
+                        .identifier("bar"),
+                        .identifier("foo"),
+                        .dash,
+                        .identifier("bar"),
+                        .eof,
+                    ],
+                    "punctuation-delimited identifiers expose dot and dash tokens"
+                )
+            }
         }
     }
 
-    static var tokenCursorProvenanceFlow: TestFlow {
-        TestFlow(
+    static var tokenCursorProvenanceSuite: TestSuite {
+        TestSuite(
             "token-cursor-provenance",
             tags: ["cursor", "position", "range"]
         ) {
-            Step("cursor preserves token ergonomics while deriving exact source ranges") {
+            Test("cursor preserves token ergonomics while deriving exact source ranges") {
                 let source = "alpha beta"
                 var lexer = Lexer(
                     source: source,
@@ -82,12 +125,12 @@ extension ParsingFlowSuite {
         }
     }
 
-    static var tokenCodableFlow: TestFlow {
-        TestFlow(
+    static var tokenCodableSuite: TestSuite {
+        TestSuite(
             "token-codable",
             tags: ["codable", "lexed-token", "token"]
         ) {
-            Step("Token and LexedToken round-trip as durable lexical values") {
+            Test("Token and LexedToken round-trip as durable lexical values") {
                 let value = LexedToken(
                     token: .identifier("alpha"),
                     range: PositionRange(

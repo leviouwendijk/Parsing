@@ -205,13 +205,28 @@ public extension Lexer {
 
     mutating func readIdent() -> String {
         var buf = String.UnicodeScalarView()
+
         func isHead(_ s: UnicodeScalar) -> Bool {
             CharacterSet.letters.contains(s) || s == "_"
         }
+
         func isCont(_ s: UnicodeScalar) -> Bool {
-            CharacterSet.letters.contains(s) || CharacterSet.decimalDigits.contains(s) ||
-            s == "_" || s == "-" || s == "."
+            if CharacterSet.letters.contains(s)
+                || CharacterSet.decimalDigits.contains(s)
+                || s == "_"
+            {
+                return true
+            }
+
+            switch options.identifier_continuation {
+            case .dotted_hyphenated:
+                return s == "-" || s == "."
+
+            case .punctuation_delimited:
+                return false
+            }
         }
+
         // head
         if let s = peek(), isHead(s) { buf.append(s); advance() }
         // tail

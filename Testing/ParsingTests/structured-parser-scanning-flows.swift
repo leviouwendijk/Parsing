@@ -1,13 +1,13 @@
 import Parsing
-import TestFlows
+import Testing
 
-extension ParsingFlowSuite {
-    static var structuredParserScanningFlow: TestFlow {
-        TestFlow(
+extension ParsingTestSuite {
+    static var structuredParserScanningSuite: TestSuite {
+        TestSuite(
             "structured-parser-scanning",
             tags: ["structured", "scan", "cardinality", "unicode"]
         ) {
-            Step("until captures bounded content without consuming its terminator") {
+            Test("until captures bounded content without consuming its terminator") {
                 let specification = StructuredParser.Specification.sequence(
                     [
                         .literal("/*"),
@@ -57,7 +57,7 @@ extension ParsingFlowSuite {
                 )
             }
 
-            Step("document scanning returns absolute non-overlapping ranges") {
+            Test("document scanning returns absolute non-overlapping ranges") {
                 let compiled = try scanningSpecification().compile()
                 let source = "before user=Levi after 👨‍👩‍👧‍👦 user=Nova end"
                 let matches = compiled.matches(
@@ -114,7 +114,7 @@ extension ParsingFlowSuite {
                 )
             }
 
-            Step("scanning advances to the end of each successful match") {
+            Test("scanning advances to the end of each successful match") {
                 let compiled = try StructuredParser.Specification
                     .literal("aa")
                     .compile()
@@ -149,7 +149,7 @@ extension ParsingFlowSuite {
                 )
             }
 
-            Step("cardinality proves match counts independently from scan selection") {
+            Test("cardinality proves match counts independently from scan selection") {
                 let compiled = try scanningSpecification().compile()
                 let source = "user=Levi and user=Nova"
 
@@ -192,7 +192,7 @@ extension ParsingFlowSuite {
                 )
             }
 
-            Step("nullable until terminators are rejected before execution") {
+            Test("nullable until terminators are rejected before execution") {
                 let invalid = StructuredParser.Specification.until(
                     .optional(
                         .literal("end")
