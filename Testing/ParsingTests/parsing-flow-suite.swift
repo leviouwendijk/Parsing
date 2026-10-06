@@ -12,5 +12,6 @@ enum ParsingTestSuite {
         structuredParserSuite
         structuredParserScanningSuite
         structuredParserGrammarSuite
+        structuredParserRequiredAnchorSuite
     }
 }
