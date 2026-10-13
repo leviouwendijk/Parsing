@@ -162,7 +162,8 @@ public struct Lexer: Lexing, PositionedLexing {
 
         if scalar == "\"" {
             advance()
-            return emitted(.string(readQuotedLiteral()), fromScalarBoundary: start)
+            let literal = readQuotedLiteral()
+            return emitted(.string(literal), fromScalarBoundary: start)
         }
 
         switch scalar {
