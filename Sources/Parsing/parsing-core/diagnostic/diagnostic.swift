@@ -11,15 +11,19 @@ public struct Diagnostic: Sendable, Codable, Hashable, CustomStringConvertible {
     public let message: String
     public let severity: Severity
     public let range: PositionRange?
+    /// If true, alternatives and optional/repetition combinators must not discard this failure.
+    public let committed: Bool
 
     public init(
         _ message: String,
         severity: Severity = .error,
-        range: PositionRange? = nil
+        range: PositionRange? = nil,
+        committed: Bool = false
     ) {
         self.message = message
         self.severity = severity
         self.range = range
+        self.committed = committed
     }
 
     public var description: String {

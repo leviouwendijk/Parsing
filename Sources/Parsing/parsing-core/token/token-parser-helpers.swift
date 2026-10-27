@@ -21,6 +21,6 @@ public func tokenCut<T: Sendable>(
     _ message: String
 ) -> AnyTokenParser<T> {
     AnyTokenParser { _ in
-        .failure(Diagnostic("[[CUT]] \(message)"))
+        .failure(Diagnostic(message, committed: true))
     }
 }

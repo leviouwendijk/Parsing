@@ -64,9 +64,7 @@ public extension TokenParser {
             switch first {
             case .success: return first
             case .failure(let d):
-                // Honor a "cut" (commit) failure produced downstream.
-                if d.message.hasPrefix("[[CUT]] ") { return .failure(d) }
-                return b.parse(c)
+                return d.committed ? .failure(d) : b.parse(c)
             }
         }
     }
@@ -76,7 +74,8 @@ public extension TokenParser {
         AnyTokenParser<Output?> { c in
             switch self.parse(c) {
             case .success(let o, let next): return .success(o, next)
-            case .failure:                  return .success(nil, c)
+            case .failure(let d):
+                return d.committed ? .failure(d) : .success(nil, c)
             }
         }
     }
@@ -103,7 +102,8 @@ public extension TokenParser {
                     acc.append(output)
                     cur = next
 
-                case .failure:
+                case .failure(let d):
+                    if d.committed { return .failure(d) }
                     return acc.count >= min
                         ? .success(acc, cur)
                         : .failure(
@@ -119,12 +119,11 @@ public extension TokenParser {
     @inlinable
     func withBacktracking() -> AnyTokenParser<Output> {
         AnyTokenParser<Output> { c in
-            let m = c.mark()
             switch self.parse(c) {
             case .success(let o, let next): return .success(o, next)
             case .failure(let d):
-                var r = c; r.restore(m)
-                return .failure(Diagnostic(d.message, severity: d.severity, range: d.range))
+                // The cursor is a value. Clear the cut explicitly for alternatives.
+                return .failure(Diagnostic(d.message, severity: d.severity, range: d.range, committed: false))
             }
         }
     }
@@ -170,11 +169,10 @@ public extension TokenParser {
             switch a.parse(c) {
             case .success(let o, let next): return .success(o, next)
             case .failure(let d):
-                // // Re-emit with a stronger message so upstream 'orElse' won't retry siblings.
-                // return .failure(Diagnostic(d.message.isEmpty ? message() : d.message))
-                // Tag the diagnostic so `orElse` won’t try sibling branches.
                 let base = d.message.isEmpty ? message() : d.message
-                return .failure(Diagnostic("[[CUT]] " + base))
+                return .failure(
+                    Diagnostic(base, severity: d.severity, range: d.range, committed: true)
+                )
             }
         }
     }
@@ -200,7 +198,7 @@ public extension TokenParser {
         return AnyTokenParser<Void> { c in
             switch a.parse(c) {
             case .success:            return .failure(Diagnostic("unexpected token"))
-            case .failure:            return .success((), c)
+            case .failure(let d):  return d.committed ? .failure(d) : .success((), c)
             }
         }
     }

@@ -58,7 +58,8 @@ public extension Parser {
             let first = a.parse(c)
             switch first {
             case .success: return first
-            case .failure: return b.parse(c)
+            case .failure(let d):
+                return d.committed ? .failure(d) : b.parse(c)
             }
         }
     }
@@ -68,7 +69,8 @@ public extension Parser {
         AnyParser<Output?> { c in
             switch self.parse(c) {
             case .success(let o, let next): return .success(o, next)
-            case .failure:                  return .success(nil, c)
+            case .failure(let d):
+                return d.committed ? .failure(d) : .success(nil, c)
             }
         }
     }
@@ -96,7 +98,8 @@ public extension Parser {
                     acc.append(output)
                     cur = next
 
-                case .failure:
+                case .failure(let d):
+                    if d.committed { return .failure(d) }
                     return acc.count >= min
                         ? .success(acc, cur)
                         : .failure(
@@ -138,13 +141,23 @@ public extension Parser {
     @inlinable
     func withBacktracking() -> AnyParser<Output> {
         AnyParser<Output> { c in
-            let mark = c.index
             switch self.parse(c) {
             case .success(let o, let next): return .success(o, next)
             case .failure(let d):
-                var restore = c
-                restore.restore(mark)
-                return .failure(Diagnostic(d.message, severity: d.severity, range: d.range))
+                // Value-semantic cursors already preserve the input position.
+                // Backtracking explicitly clears commitment to allow alternatives.
+                return .failure(Diagnostic(d.message, severity: d.severity, range: d.range, committed: false))
+            }
+        }
+    }
+
+    /// Mark a failure as committed, preventing implicit fallback.
+    func cut() -> AnyParser<Output> {
+        AnyParser<Output> { c in
+            switch self.parse(c) {
+            case .success(let o, let next): return .success(o, next)
+            case .failure(let d):
+                return .failure(Diagnostic(d.message, severity: d.severity, range: d.range, committed: true))
             }
         }
     }
@@ -172,7 +185,8 @@ public struct OptionalP<P: Parser>: Parser {
     public func parse(_ c: Cursor) -> ParseResult<Output> {
         switch p.parse(c) {
         case .success(let out, let next): return .success(out, next)
-        case .failure:                    return .success(nil, c)
+        case .failure(let d):
+            return d.committed ? .failure(d) : .success(nil, c)
         }
     }
 }
@@ -212,7 +226,8 @@ public struct Many<P: Parser>: Parser {
                 acc.append(output)
                 cur = next
 
-            case .failure:
+            case .failure(let d):
+                if d.committed { return .failure(d) }
                 return acc.count >= min
                     ? .success(acc, cur)
                     : .failure(

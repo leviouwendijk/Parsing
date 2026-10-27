@@ -9,6 +9,7 @@ let package = Package(
         .macOS(.v13)
     ],
     products: [
+        .executable(name: "t_parsing", targets: ["ParsingTests"]),
         .library(
             name: "Parsing",
             targets: ["Parsing"]
@@ -19,6 +20,7 @@ let package = Package(
         ),
     ],
     dependencies: [
+        .package(url: "https://github.com/leviouwendijk/Primitives.git", branch: "master"),
         .package(url: "https://github.com/leviouwendijk/Position.git", branch: "master"),
         .package(url: "https://github.com/leviouwendijk/Testing.git", branch: "master"),
     ],
@@ -26,6 +28,7 @@ let package = Package(
         .target(
             name: "Parsing",
             dependencies: [
+                .product(name: "Primitives", package: "Primitives"),
                 .product(name: "Position", package: "Position"),
             ]
         ),
@@ -33,8 +36,9 @@ let package = Package(
             name: "ParsingTests",
             dependencies: [
                 "Parsing",
-                .product(name: "Position", package: "Position"),
                 .product(name: "Testing", package: "Testing"),
+                .product(name: "Primitives", package: "Primitives"),
+                .product(name: "Position", package: "Position"),
             ],
             path: "Testing/ParsingTests"
         ),
