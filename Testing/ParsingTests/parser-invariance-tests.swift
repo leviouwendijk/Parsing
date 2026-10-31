@@ -173,7 +173,7 @@ func test_parsing_token_rules_and_helpers() throws {
     let bad = tokenCursor(.number(-1, raw: "-1"), source: "-1")
     switch PNumber().validated(by: nonnegative).parse(bad) {
     case .success: try Expect.true(false, "negative number must fail rules")
-    case .failure(let d): try Expect.true(d.committed && d.message.contains("below_minimum"), "numeric rule code")
+    case .failure(let d): try Expect.true(d.committed && d.message.contains("number.nonnegative"), "numeric rule code")
     }
     switch PKeyword("missing").cut().withBacktracking().orElse(PIdent()).parse(
         tokenCursor(.identifier("ok"), source: "ok")

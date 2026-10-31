@@ -76,6 +76,90 @@ extension ParsingTestSuite {
                     "punctuation-delimited identifiers expose dot and dash tokens"
                 )
             }
+            Test("long unsupported scalar run terminates without stack overflow") {
+                let source = String(repeating: "!", count: 100_000)
+                var lexer = Lexer(
+                    source: source,
+                    sets: LexingSets(keywords: [])
+                )
+
+                try Expect.equal(lexer.nextToken(), .eof, "unsupported input reaches EOF")
+                try Expect.equal(lexer.nextToken(), .eof, "repeated EOF remains stable")
+            }
+
+            Test("long unsupported prefix preserves following token provenance") {
+                let source = String(repeating: "^", count: 50_000) + "tail"
+                var lexer = Lexer(
+                    source: source,
+                    sets: LexingSets(keywords: [])
+                )
+
+                let lexeme = lexer.nextLexedToken()
+                try Expect.equal(lexeme.token, .identifier("tail"), "identifier after skipped prefix")
+                try Expect.equal(lexeme.range.start.offset, 50_000, "start Character offset")
+                try Expect.equal(lexeme.range.end.offset, 50_004, "end Character offset")
+                try Expect.equal(lexer.nextToken(), .eof, "EOF after identifier")
+            }
+
+            Test("CSV-like input preserves tokens across long unsupported runs") {
+                let source = "a," + String(repeating: "!", count: 20_000) + "\nb"
+                var lexer = Lexer(
+                    source: source,
+                    sets: LexingSets(keywords: [])
+                )
+                let lexed = lexer.lexedTokens()
+
+                try Expect.equal(
+                    lexed.map(\.token),
+                    [.identifier("a"), .comma, .newline, .identifier("b"), .eof],
+                    "CSV-like token sequence"
+                )
+                try Expect.equal(
+                    lexed.map { $0.range.start.offset },
+                    [0, 1, 20_002, 20_003, 20_004],
+                    "CSV-like start offsets"
+                )
+                try Expect.equal(
+                    lexed.map { $0.range.end.offset },
+                    [1, 2, 20_003, 20_004, 20_004],
+                    "CSV-like end offsets"
+                )
+            }
+
+            Test("RTF-like input does not recurse through unsupported content") {
+                let source = "{\\rtf1 " + String(repeating: "^", count: 20_000) + "body}"
+                var lexer = Lexer(
+                    source: source,
+                    sets: LexingSets(keywords: [])
+                )
+
+                try Expect.equal(
+                    lexer.lexedTokens().map(\.token),
+                    [
+                        .left_brace,
+                        .backward_slash,
+                        .identifier("rtf1"),
+                        .identifier("body"),
+                        .right_brace,
+                        .eof
+                    ],
+                    "RTF-like token sequence"
+                )
+            }
+
+            Test("extended Unicode skips preserve Character-based offsets") {
+                let source = String(repeating: "👨‍👩‍👧‍👦", count: 1_000) + "tail"
+                var lexer = Lexer(
+                    source: source,
+                    sets: LexingSets(keywords: [])
+                )
+
+                let lexeme = lexer.nextLexedToken()
+                try Expect.equal(lexeme.token, .identifier("tail"), "token after extended Unicode")
+                try Expect.equal(lexeme.range.start.offset, 1_000, "Unicode Character start offset")
+                try Expect.equal(lexeme.range.end.offset, 1_004, "Unicode Character end offset")
+                try Expect.equal(lexer.nextToken(), .eof, "Unicode input terminates")
+            }
         }
     }
 

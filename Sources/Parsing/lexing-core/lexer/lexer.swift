@@ -43,6 +43,14 @@ public struct Lexer: Lexing, PositionedLexing {
     }
 
     private mutating func nextLexeme() -> LexedToken {
+        while true {
+            if let lexeme = nextLexemeOrSkip() {
+                return lexeme
+            }
+        }
+    }
+
+    private mutating func nextLexemeOrSkip() -> LexedToken? {
         switch string_block_state {
         case .awaitingOpen:
             while true {
@@ -230,7 +238,7 @@ public struct Lexer: Lexing, PositionedLexing {
         }
 
         advance()
-        return nextLexeme()
+        return nil
     }
 
     @inline(__always)
