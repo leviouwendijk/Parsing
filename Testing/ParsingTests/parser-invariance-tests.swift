@@ -249,6 +249,108 @@ func test_parsing_monotonic_progress() throws {
     }
 }
 
+func test_parsing_newline_repetition() throws {
+    func cursor(_ source: String) -> TokenCursor {
+        var lexer = Lexer(source: source, sets: .init(keywords: []))
+        return TokenCursor(lexedTokens: lexer.lexedTokens(), source: source)
+    }
+
+    switch newlineRun(min: 0).parse(cursor("value")) {
+    case .failure:
+        try Expect.true(false, "zero newlines must be accepted")
+    case .success(_, let next):
+        try Expect.true(next.index == 0, "zero minimum must not consume a value")
+    }
+    switch newlineRun(min: 1).parse(cursor("value")) {
+    case .success:
+        try Expect.true(false, "positive minimum must require newlines")
+    case .failure:
+        break
+    }
+    switch newlineRun(min: 2).parse(cursor("\nvalue")) {
+    case .success:
+        try Expect.true(false, "one newline does not meet a two-newline minimum")
+    case .failure:
+        break
+    }
+    switch newlineRun(min: 2).parse(cursor("\n\nvalue")) {
+    case .failure(let diagnostic):
+        try Expect.true(false, "two newlines must parse: \(diagnostic)")
+    case .success(_, let next):
+        try Expect.true(next.index == 2, "consume exactly two newlines")
+    }
+    switch thenAnyNewlines(AnyTokenParser(PIdent())).parse(cursor("value\n\n")) {
+    case .failure(let diagnostic):
+        try Expect.true(false, "trailing newlines must parse: \(diagnostic)")
+    case .success(let value, let next):
+        try Expect.true(value == "value" && next.isEOF, "trailing newlines are consumed")
+    }
+}
+
+func test_parsing_block_skip_safety() throws {
+    let source = tokenCursor(.identifier("value"), source: "value")
+    let identifier = AnyTokenParser(PIdent())
+
+    let noOp = BlockParser<Never, String>(delimiter: .none, content: identifier)
+    switch noOp.parse(source) {
+    case .failure(let diagnostic):
+        try Expect.true(false, "default no-op skip must remain valid: \(diagnostic)")
+    case .success(let result, let next):
+        try Expect.true(result.content == "value" && next.isEOF, "no-op skip stops normally")
+    }
+
+    let rewinding = AnyTokenParser<Void> { cursor in
+        var next = cursor
+        if cursor.index == 0 {
+            next.advance()
+        } else {
+            _ = next.restore(0)
+        }
+        return .success((), next)
+    }
+    let broken = BlockParser<Never, String>(
+        delimiter: .none,
+        content: identifier,
+        skip: rewinding
+    )
+    switch broken.parse(source) {
+    case .success:
+        try Expect.true(false, "rewinding skip parser must not loop")
+    case .failure(let diagnostic):
+        try Expect.true(diagnostic.committed, "rewinding is a committed failure")
+        try Expect.true(diagnostic.range?.start.offset == 5, "failure has source position")
+    }
+
+    let committed = BlockParser<Never, String>(
+        delimiter: .none,
+        content: identifier,
+        skip: tokenCut("skip denied")
+    )
+    switch committed.parse(source) {
+    case .success:
+        try Expect.true(false, "committed skip failure must not be discarded")
+    case .failure(let diagnostic):
+        try Expect.true(diagnostic.committed && diagnostic.message == "skip denied", "keep original diagnostic")
+    }
+
+    let lateFailure = AnyTokenParser<Void> { cursor in
+        cursor.index == 0
+            ? .success((), cursor)
+            : .failure(Diagnostic("late skip denied", committed: true))
+    }
+    let delayed = BlockParser<Never, String>(
+        delimiter: .none,
+        content: identifier,
+        skip: lateFailure
+    )
+    switch delayed.parse(source) {
+    case .success:
+        try Expect.true(false, "skip failure after content must propagate")
+    case .failure(let diagnostic):
+        try Expect.true(diagnostic.committed && diagnostic.message == "late skip denied", "keep late diagnostic")
+    }
+}
+
 func test_parsing_diagnostic_coding() throws {
     let committed = Diagnostic("bad", committed: true)
     let encoded = try JSONEncoder().encode(committed)
@@ -288,6 +390,12 @@ extension ParsingTestSuite {
             }
             Test("monotonic-progress", tags: ["parsing", "invariance"]) {
                 try test_parsing_monotonic_progress()
+            }
+            Test("newline-repetition", tags: ["parsing", "invariance"]) {
+                try test_parsing_newline_repetition()
+            }
+            Test("block-skip-safety", tags: ["parsing", "invariance"]) {
+                try test_parsing_block_skip_safety()
             }
             Test("diagnostic-coding", tags: ["diagnostics"]) {
                 try test_parsing_diagnostic_coding()

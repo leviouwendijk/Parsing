@@ -4,8 +4,7 @@ import Foundation
 @inlinable
 public func newlineRun(min: Int = 1) -> AnyTokenParser<Void> {
     let one = AnyTokenParser(Expect(.newline)).map { (_: Token) in () }
-    if min <= 0 { return one.optional().many(min: 0).map { _ in () } }
-    return one.then(one.optional().many(min: 0)).map { _ in () }
+    return one.many(min: max(0, min)).map { _ in () }
 }
 
 /// Runs `inner` and then eats any number of trailing newlines.
