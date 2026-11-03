@@ -12,10 +12,6 @@ public func separator(_ s: GrammarSeparator) -> AnyTokenParser<Void> {
     switch s {
     case .comma:              return AnyTokenParser(Expect(.comma)).map { (_: Token) in () }
     case .semicolon:          return AnyTokenParser(Expect(.semicolon)).map { (_: Token) in () }
-    // case .newline:            return AnyTokenParser(Expect(.newline)).map { (_: Token) in () }
-    // case .commaOrNewline:     return AnyTokenParser(Expect(.comma)).orElse(AnyTokenParser(Expect(.newline))).map { (_: Token) in () }
-    // case .semicolonOrNewline: return AnyTokenParser(Expect(.semicolon)).orElse(AnyTokenParser(Expect(.newline))).map { (_: Token) in () }
-
     // Coalesce 1+ consecutive newlines into a single logical separator:
     case .newline:            return manyNewlines(min: 1)
     case .commaOrNewline:

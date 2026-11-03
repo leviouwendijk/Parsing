@@ -9,20 +9,19 @@ public extension Grammar {
     }
 
     enum Compiler {
-    public static func compile(_ grammar: Grammar, node name: String) -> AnyTokenParser<GrammarResult> {
-        AnyTokenParser { ctx in
-            guard let spec = grammar.nodes[name] else {
-                return .failure(Diagnostic("Unknown node: \(name)"))
+        public static func compile(_ grammar: Grammar, node name: String) -> AnyTokenParser<GrammarResult> {
+            AnyTokenParser { cursor in
+                guard let spec = grammar.nodes[name] else {
+                    return .failure(Diagnostic("Unknown node: \(name)"))
+                }
+                return buildNodeParser(grammar, spec).parse(cursor)
             }
-            return buildNodeParser(grammar, spec).parse(ctx)
         }
-    }
 
     // Turn a GrammarValue into AnyTokenParser<SyntaxNode>
     private static func compileValue(_ g: Grammar, _ v: GrammarValue) -> AnyTokenParser<SyntaxNode> {
         switch v {
         case .val(let nm):
-            // if let p: AnyTokenParser<String>  = g.values.make(nm) { return p.map(SyntaxNode.string) }grammar
             if let p: AnyTokenParser<String>  = g.values.make(nm) {
                 // Identifiers should stay atoms, not strings.
                 if nm == "ident" { return p.map(SyntaxNode.atom) }
@@ -93,73 +92,29 @@ public extension Grammar {
             withOpener = AnyTokenParser { .success((), $0) }
         }
 
-        // // Build a parser for a single declared field
-        // func fieldShape(_ f: GrammarField) -> AnyTokenParser<(String, [SyntaxNode])> {
-        //     let key = TokenParsers.keyword(.raw(f.name)).map { () }
-        //     let val = compileValue(g, f.value)
+        func fieldShape(_ field: GrammarField) -> AnyTokenParser<(String, [SyntaxNode])> {
+            let key = TokenParsers.keyword(.raw(field.name)).map { () }
+            let value = compileValue(g, field.value)
+            // Accept both "key value" and "key = value".
+            let maybeEquals = AnyTokenParser(Expect(.equals)).optional().map { (_: Token?) in () }
 
-        //     switch f.multiplicity {
-        //     case .one:
-        //         return key.then(val).map { (_, v) in (f.name, [v]) }
-
-        //     // case .optional(let def):
-        //     //     let present = key.then(val).map { (_, v) in (f.name, [v]) }
-        //     //     if let def = def {
-        //     //         return present.orElse(AnyTokenParser { .success((f.name, [def]), $0) })
-        //     //     } else {
-        //     //         return present.optional().map { opt in
-        //     //             opt ?? (f.name, [])   // absent => empty list (collected later)
-        //     //         }
-        //     //     }
-
-        //     case .optional:
-        //         // Important: do NOT succeed if the key isn’t present.
-        //         // If the keyword doesn’t match, this parser must FAIL so the unordered choice can try others.
-        //         // Defaults (if any) are injected AFTER collection (see patch #2 below).
-        //         return key.then(val).map { (_, v) in (f.name, [v]) }
-
-        //     case .many(let sep):
-        //         let list = separatedList(item: val, sep: sep)
-        //         return key.then(list).map { (_, xs) in (f.name, xs) }
-        //     }
-        // }
-
-         func fieldShape(_ f: GrammarField) -> AnyTokenParser<(String, [SyntaxNode])> {
-             let key = TokenParsers.keyword(.raw(f.name)).map { () }
-            let val = compileValue(g, f.value)
-            // Support both "key value" and "key = value"
-            let maybeEq = AnyTokenParser(Expect(.equals)).optional().map { (_: Token?) in () }
- 
-             switch f.multiplicity {
-             case .one:
-                return key.then(maybeEq).then(val).map { _ , v in (f.name, [v]) }
- 
-            case .optional:
-                // Do not succeed when the key is absent; but if present, accept optional '='
-                return key.then(maybeEq).then(val).map { _ , v in (f.name, [v]) }
- 
-             case .many(let sep):
-                let list = separatedList(item: val, sep: sep)
-                return key.then(maybeEq).then(list).map { _ , xs in (f.name, xs) }
-             }
-         }
+            switch field.multiplicity {
+            case .one, .optional:
+                return key.then(maybeEquals).then(value).map { _, parsed in
+                    (field.name, [parsed])
+                }
+            case .many(let separator):
+                let list = separatedList(item: value, sep: separator)
+                return key.then(maybeEquals).then(list).map { _, parsed in
+                    (field.name, parsed)
+                }
+            }
+        }
 
         // Collect fields
         let body: AnyTokenParser<[(String, [SyntaxNode])]>
         switch n.order {
         case .unordered:
-            // // repeatedly parse any field; stop when no progress
-            // let choices = n.fields.map { fieldShape($0) } // [(String, [SyntaxNode])]
-            // let seed: AnyTokenParser<(String, [SyntaxNode])> =
-            //     choices.first ?? AnyTokenParser { ctx in .success(("", []), ctx) }
-
-            // let one = choices.dropFirst().reduce(seed) { $0.orElse($1) }
-
-            // body = one
-            //     .then(separator(.semicolonOrNewline).optional()) // ((String,[SyntaxNode]), Void?)
-            //     .many(min: 0)
-            //     .map { $0.map { $0.0 } }                          // [(String, [SyntaxNode])]
-
             // Repeatedly parse any field; allow BLANK LINES between fields.
             let choices = n.fields.map { fieldShape($0) } // [(String, [SyntaxNode])]
             let seed: AnyTokenParser<(String, [SyntaxNode])> =
@@ -193,7 +148,6 @@ public extension Grammar {
             body = chain(parts)
         }
 
-        // let delimitedBody = delimited(n.delimiter, body: body)
 
         // Special-case: single map field may use "anonymous body" (no leading field name).
         // Example: node "pairs" with one field "kv" of type .map(...):
@@ -228,25 +182,6 @@ public extension Grammar {
         }()
 
         return withOpener.then(delimitedBody).flatMap { _, pairs in
-            // // Merge into name → [nodes]
-            // var bucket: [String: [SyntaxNode]] = [:]
-            // for (k, vs) in pairs where !vs.isEmpty {
-            //     bucket[k, default: []].append(contentsOf: vs)
-            // }
-
-            // // run optional validator
-            // if let validate = n.validate {
-            //     let diags = validate(bucket)
-            //     if let d = diags.first {
-            //         return AnyTokenParser<GrammarResult> { _ in .failure(d) }
-            //     }
-            // }
-
-            // let frozen = bucket
-            // return AnyTokenParser<GrammarResult> { ctx in
-            //     .success(.object(name: n.name, fields: frozen), ctx)
-            // }
-
             // Merge into name → [nodes]
             var bucket: [String: [SyntaxNode]] = [:]
             for (k, vs) in pairs where !vs.isEmpty {

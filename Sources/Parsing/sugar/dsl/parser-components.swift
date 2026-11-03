@@ -1,6 +1,5 @@
 import Foundation
 
-// public struct ValueParsers {
 public struct ParserComponents: @unchecked Sendable {
     public typealias Maker<T> = @Sendable () -> AnyTokenParser<T>
     private var makers: [String: Any] = [:]
@@ -41,16 +40,6 @@ public extension ParserComponents {
 
         pc.register("bool") {
             // bool from ident/keyword: true/false
-            // TokenParsers.identifier().flatMap { s in
-            //     AnyTokenParser<Bool> { c in
-            //         switch s.lowercased() {
-            //         case "true":  return .success(true, c)
-            //         case "false": return .success(false, c)
-            //         default:      return .failure(Diagnostic("expected boolean literal (true|false)"))
-            //         }
-            //     }
-            // }
-            
             // Prefer keyword tokens, fall back to bare identifiers.
             let kwTrue  = TokenParsers.keyword(.raw("true")).map { true  }
             let kwFalse = TokenParsers.keyword(.raw("false")).map { false }
