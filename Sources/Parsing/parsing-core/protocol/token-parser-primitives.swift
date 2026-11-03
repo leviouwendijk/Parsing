@@ -8,7 +8,7 @@ public struct Expect: TokenParser {
     public func parse(_ c: TokenCursor) -> TokenParseResult<Token> {
         var cur = c
         guard let t = cur.peek(), t.sameCase(as: want) else {
-            return .failure(Diagnostic("expected \(want)"))
+            return .failure(Diagnostic("expected \(want)", range: c.currentRange))
         }
         cur.advance()
         return .success(t, cur)

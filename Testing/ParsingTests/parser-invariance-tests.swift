@@ -351,6 +351,99 @@ func test_parsing_block_skip_safety() throws {
     }
 }
 
+func test_parsing_committed_sequence() throws {
+    let character = ExpectString("ab").thenCommitted(ExpectString("c"))
+    switch character.parse(Cursor("abc")) {
+    case .failure(let diagnostic):
+        try Expect.true(false, "valid committed sequence: \(diagnostic)")
+    case .success(let result, let next):
+        try Expect.true(result.0 == "ab" && result.1 == "c" && next.isEOF, "character sequence")
+    }
+    switch character.parse(Cursor("abd")) {
+    case .success:
+        try Expect.true(false, "suffix mismatch must fail")
+    case .failure(let diagnostic):
+        try Expect.true(diagnostic.committed, "suffix failure committed")
+        try Expect.true(diagnostic.range?.start.offset == 2, "suffix source location")
+    }
+    switch character.orElse(ExpectString("abd").map { ($0, "") }).parse(Cursor("abd")) {
+    case .success:
+        try Expect.true(false, "alternative cannot override a committed suffix failure")
+    case .failure(let diagnostic):
+        try Expect.true(diagnostic.committed, "alternative preserves commitment")
+    }
+    let recoverable = ExpectString("xy").thenCommitted(ExpectString("z"))
+        .orElse(ExpectString("abd").map { ($0, "") })
+    switch recoverable.parse(Cursor("abd")) {
+    case .failure(let diagnostic):
+        try Expect.true(false, "prefix mismatch should allow fallback: \(diagnostic)")
+    case .success(let value, let next):
+        try Expect.true(value.0 == "abd" && next.isEOF, "prefix failure remains recoverable")
+    }
+
+    func cursor(_ source: String) -> TokenCursor {
+        var lexer = Lexer(source: source, sets: .init(keywords: []))
+        return TokenCursor(lexedTokens: lexer.lexedTokens(), source: source)
+    }
+    let token = PIdent().thenCommitted(Expect(.equals))
+    switch token.parse(cursor("key =")) {
+    case .failure(let diagnostic):
+        try Expect.true(false, "valid token sequence: \(diagnostic)")
+    case .success(let value, let next):
+        try Expect.true(value.0 == "key" && next.isEOF, "token sequence")
+    }
+    switch token.optional().parse(cursor("key value")) {
+    case .success:
+        try Expect.true(false, "optional cannot discard a committed suffix")
+    case .failure(let diagnostic):
+        try Expect.true(diagnostic.committed, "token suffix commitment")
+        try Expect.true(diagnostic.range?.start.offset == 4, "token suffix source location")
+    }
+    switch token.parse(cursor("= value")) {
+    case .success:
+        try Expect.true(false, "prefix mismatch cannot succeed")
+    case .failure(let diagnostic):
+        try Expect.true(!diagnostic.committed, "prefix failure remains recoverable")
+    }
+}
+
+func test_parsing_recovery_synchronization() throws {
+    func cursor(_ source: String) -> TokenCursor {
+        var lexer = Lexer(source: source, sets: .init(keywords: []))
+        return TokenCursor(lexedTokens: lexer.lexedTokens(), source: source)
+    }
+
+    switch recoverUntil([.semicolon], message: "skipped").parse(cursor("bad data;good")) {
+    case .failure(let diagnostic):
+        try Expect.true(false, "synchronization should succeed: \(diagnostic)")
+    case .success(let diagnostic, let next):
+        try Expect.true(diagnostic.message == "skipped", "recovery reason retained")
+        try Expect.true(diagnostic.range?.offsets == 0..<8, "skipped Character range")
+        try Expect.true(next.index == 2 && next.peek() == .semicolon, "boundary left for caller")
+    }
+    switch recoverUntil([.newline]).parse(cursor("bad\nnext")) {
+    case .failure:
+        try Expect.true(false, "newline recovery should succeed")
+    case .success(let diagnostic, let next):
+        try Expect.true(diagnostic.range?.offsets == 0..<3, "newline skip range")
+        try Expect.true(next.index == 1 && next.peek() == .newline, "newline unconsumed")
+    }
+    switch recoverUntil([.rbrace]).parse(cursor("}end")) {
+    case .failure:
+        try Expect.true(false, "existing boundary should not fail")
+    case .success(let diagnostic, let next):
+        try Expect.true(next.index == 0, "zero-length synchronization")
+        try Expect.true(diagnostic.range?.offsets == 0..<0, "point diagnostic")
+    }
+    switch recoverUntil([.semicolon]).parse(cursor("unfinished")) {
+    case .failure:
+        try Expect.true(false, "EOF recovery should succeed")
+    case .success(let diagnostic, let next):
+        try Expect.true(next.isEOF && next.index == 1, "stop before EOF token")
+        try Expect.true(diagnostic.range?.offsets == 0..<10, "EOF skip range")
+    }
+}
+
 func test_parsing_diagnostic_coding() throws {
     let committed = Diagnostic("bad", committed: true)
     let encoded = try JSONEncoder().encode(committed)
@@ -396,6 +489,12 @@ extension ParsingTestSuite {
             }
             Test("block-skip-safety", tags: ["parsing", "invariance"]) {
                 try test_parsing_block_skip_safety()
+            }
+            Test("committed-sequence", tags: ["commitment", "invariance"]) {
+                try test_parsing_committed_sequence()
+            }
+            Test("recovery-synchronization", tags: ["recovery", "invariance"]) {
+                try test_parsing_recovery_synchronization()
             }
             Test("diagnostic-coding", tags: ["diagnostics"]) {
                 try test_parsing_diagnostic_coding()
