@@ -93,8 +93,11 @@ public struct TokenCursor: Sendable {
     }
 
     @inlinable
-    public mutating func restore(_ mark: Int) {
+    @discardableResult
+    public mutating func restore(_ mark: Int) -> Bool {
+        guard mark >= 0, mark <= tokens.count else { return false }
         index = mark
+        return true
     }
 
     public var current: LexedToken? {
@@ -114,16 +117,18 @@ public struct TokenCursor: Sendable {
             return nil
         }
 
-        let lower = min(max(0, mark), lexedTokens.count - 1)
-        let upper = min(max(lower, index), lexedTokens.count)
-
-        guard upper > lower else {
-            return .point(lexedTokens[lower].range.start)
+        guard mark >= 0, mark <= index, index <= lexedTokens.count else {
+            return nil
         }
-
+        if mark == lexedTokens.count {
+            return .point(lexedTokens[lexedTokens.count - 1].range.end)
+        }
+        if index == mark {
+            return .point(lexedTokens[mark].range.start)
+        }
         return PositionRange(
-            uncheckedStart: lexedTokens[lower].range.start,
-            uncheckedEnd: lexedTokens[upper - 1].range.end
+            uncheckedStart: lexedTokens[mark].range.start,
+            uncheckedEnd: lexedTokens[index - 1].range.end
         )
     }
 

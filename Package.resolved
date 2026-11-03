@@ -1,5 +1,5 @@
 {
-  "originHash" : "2ebacbb3f4879b821f2b302d7124b78ff6aac737f57a34875ca703c22c760d80",
+  "originHash" : "35413aced24baf4093334c3cab97f6ac2d9bae763f6440f6d08490262e93af84",
   "pins" : [
     {
       "identity" : "atomos",
@@ -8,6 +8,15 @@
       "state" : {
         "branch" : "master",
         "revision" : "5ffdb160c4913e02214020eb75ac620900cf2914"
+      }
+    },
+    {
+      "identity" : "lexing",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/leviouwendijk/Lexing.git",
+      "state" : {
+        "branch" : "master",
+        "revision" : "3d56d873b1a1bf1dd3978b3b06dcb2f9b9981b34"
       }
     },
     {
@@ -25,7 +34,7 @@
       "location" : "https://github.com/leviouwendijk/Primitives.git",
       "state" : {
         "branch" : "master",
-        "revision" : "93f06221b2835f3e4a378824cde2e5752c900ba5"
+        "revision" : "2a1996970e4549ab110ffa72f654560a72ad2ca7"
       }
     },
     {

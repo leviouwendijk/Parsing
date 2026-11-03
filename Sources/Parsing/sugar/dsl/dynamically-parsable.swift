@@ -1,6 +1,6 @@
 import Foundation
 
-public protocol DynamicallyParsable: Sendable {
+public protocol DynamicallyParsable: Parsable {
     /// Provide the value parser table used by your grammar (you already have .basic()).
     static func parserComponents() -> ParserComponents
     /// Provide the node spec that represents this model in the DSL.
@@ -13,8 +13,8 @@ public protocol DynamicallyParsable: Sendable {
 }
 
 public extension DynamicallyParsable {
-    static func parser() -> AnyTokenParser<Self> {
-        let grammar = Grammar(
+    static func parser() throws -> AnyTokenParser<Self> {
+        let grammar = try Grammar(
             nodes: [grammarNode()],
             values: parserComponents(),
             child: { AnyTokenParser { _ in .failure(Diagnostic("no child")) } }

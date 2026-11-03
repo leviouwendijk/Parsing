@@ -1,13 +1,14 @@
 import Foundation
 
-public enum GrammarResult: Sendable {
-    case object(name: String, fields: [String: [SyntaxNode]])
-    case list([SyntaxNode])
-    case map([String: SyntaxNode])
-    case atom(SyntaxNode)
-}
+public extension Grammar {
+    enum Result: Sendable {
+        case object(name: String, fields: [String: [SyntaxNode]])
+        case list([SyntaxNode])
+        case map([String: SyntaxNode])
+        case atom(SyntaxNode)
+    }
 
-public enum GrammarCompiler {
+    enum Compiler {
     public static func compile(_ grammar: Grammar, node name: String) -> AnyTokenParser<GrammarResult> {
         AnyTokenParser { ctx in
             guard let spec = grammar.nodes[name] else {
@@ -54,15 +55,26 @@ public enum GrammarCompiler {
                     .many(min: 0)
                     .map { $0.map { $0.0 } }            // [(String, SyntaxNode)]
             )
-            .map { pairs -> SyntaxNode in
-                let dict: [String: SyntaxNode] = Dictionary(
-                    uniqueKeysWithValues: pairs.map { ($0.0, $0.1) })
-                return .map(dict)
+            .flatMap { pairs -> AnyTokenParser<SyntaxNode> in
+                var dict: [String: SyntaxNode] = [:]
+                for (key, value) in pairs {
+                    guard dict.updateValue(value, forKey: key) == nil else {
+                        return AnyTokenParser { _ in
+                            .failure(Diagnostic("Duplicate map key '\(key)'", committed: true))
+                        }
+                    }
+                }
+                let result = SyntaxNode.map(dict)
+                return AnyTokenParser { .success(result, $0) }
             }
 
         case .oneOf(let arr):
-            precondition(!arr.isEmpty, "oneOf requires at least one alternative")
-            return arr.dropFirst().reduce(compileValue(g, arr[0])) { acc, nxt in
+            guard let first = arr.first else {
+                return AnyTokenParser { _ in
+                    .failure(Diagnostic("oneOf requires at least one alternative", committed: true))
+                }
+            }
+            return arr.dropFirst().reduce(compileValue(g, first)) { acc, nxt in
                 acc.orElse(compileValue(g, nxt))
             }
 
@@ -73,9 +85,12 @@ public enum GrammarCompiler {
 
     private static func buildNodeParser(_ g: Grammar, _ n: GrammarNode) -> AnyTokenParser<GrammarResult> {
         // Optional opener keyword
-        let withOpener: AnyTokenParser<Void> =
-            (n.opener != nil) ? TokenParsers.keyword(n.opener!).map { () }
-                              : AnyTokenParser { .success((), $0) }
+        let withOpener: AnyTokenParser<Void>
+        if let opener = n.opener {
+            withOpener = TokenParsers.keyword(opener).map { () }
+        } else {
+            withOpener = AnyTokenParser { .success((), $0) }
+        }
 
         // // Build a parser for a single declared field
         // func fieldShape(_ f: GrammarField) -> AnyTokenParser<(String, [SyntaxNode])> {
@@ -207,10 +222,20 @@ public enum GrammarCompiler {
                 let anonMap: AnyTokenParser<[(String,[SyntaxNode])]> =
                     pair.then(separator(sep).optional())
                         .many(min: 1) // <- was 0
-                        .map { pairs in
-                            let dict = Dictionary(uniqueKeysWithValues: pairs.map { $0.0 })
-                            // Wrap under the declared field name
-                            return [(n.fields[0].name, [ .map(dict) ])]
+                        .flatMap { pairs -> AnyTokenParser<[(String, [SyntaxNode])]> in
+                            var dict: [String: SyntaxNode] = [:]
+                            for (entry, _) in pairs {
+                                let (key, value) = entry
+                                guard dict.updateValue(value, forKey: key) == nil else {
+                                    return AnyTokenParser { _ in
+                                        .failure(Diagnostic("Duplicate map key '\(key)'", committed: true))
+                                    }
+                                }
+                            }
+                            let result: [(String, [SyntaxNode])] = [
+                                (n.fields[0].name, [.map(dict)])
+                            ]
+                            return AnyTokenParser { .success(result, $0) }
                         }
 
                 // // Try explicit fields first; if none match, accept anonymous map
@@ -270,5 +295,6 @@ public enum GrammarCompiler {
             }
 
         }
+    }
     }
 }

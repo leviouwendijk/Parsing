@@ -1,6 +1,7 @@
 import Foundation
 
-public indirect enum GrammarValue: Sendable {
+public extension Grammar {
+    indirect enum Value: Sendable {
     case val(_ name: String)                     // use registered parser by name (e.g., "decimal")
     case node(_ ref: String)                     // reference to another GrammarNode (nesting/recursion)
     case list(_ elem: GrammarValue, sep: GrammarSeparator = .commaOrNewline)
@@ -13,16 +14,16 @@ public indirect enum GrammarValue: Sendable {
     }
 }
 
-public enum GrammarSeparator: Sendable { case comma, semicolon, newline, commaOrNewline, semicolonOrNewline, none }
+    enum Separator: Sendable { case comma, semicolon, newline, commaOrNewline, semicolonOrNewline, none }
 
 // Field multiplicity captures optional/many in one place.
-public enum GMultiplicity: Sendable {
+    enum Multiplicity: Sendable {
     case one
     case optional(defaultValue: SyntaxNode? = nil)
     case many(sep: GrammarSeparator = .commaOrNewline)
 }
 
-public struct GrammarField: Sendable {
+    struct Field: Sendable {
     public let name: String
     public let value: GrammarValue
     public let multiplicity: GMultiplicity
@@ -40,9 +41,9 @@ public struct GrammarField: Sendable {
     }
 }
 
-public enum GrammarOrder: Sendable { case ordered, unordered }
+    enum Order: Sendable { case ordered, unordered }
 
-public struct GrammarNode: Sendable {
+    struct Node: Sendable {
     public let name: String
     public let opener: Keyword?          // optional leading keyword, e.g. `entry { ... }`
     public let delimiter: Delim          // (), [], {} around body
@@ -65,7 +66,7 @@ public struct GrammarNode: Sendable {
     }
 }
 
-public struct GValidators {
+    struct Validators {
     public static func requireKeys(_ keys: Set<String>) -> (@Sendable ([String: [SyntaxNode]]) -> [Diagnostic]) {
         return { bucket in
             let missing = keys.subtracting(bucket.keys)
@@ -74,13 +75,25 @@ public struct GValidators {
     }
 }
 
+    enum Error: Swift.Error, Equatable, Sendable {
+    case duplicate_node(String)
+}
+
+}
+
 public struct Grammar: Sendable {
     public let nodes: [String: GrammarNode]
     public let values: ParserComponents
     public let child: @Sendable () -> AnyTokenParser<SyntaxNode>   // open recursion provider
 
-    public init(nodes: [GrammarNode], values: ParserComponents, child: @escaping @Sendable () -> AnyTokenParser<SyntaxNode>) {
-        self.nodes = Dictionary(uniqueKeysWithValues: nodes.map { ($0.name, $0) })
+    public init(nodes: [GrammarNode], values: ParserComponents, child: @escaping @Sendable () -> AnyTokenParser<SyntaxNode>) throws {
+        var indexed: [String: GrammarNode] = [:]
+        for node in nodes {
+            guard indexed.updateValue(node, forKey: node.name) == nil else {
+                throw GrammarError.duplicate_node(node.name)
+            }
+        }
+        self.nodes = indexed
         self.values = values
         self.child = child
     }

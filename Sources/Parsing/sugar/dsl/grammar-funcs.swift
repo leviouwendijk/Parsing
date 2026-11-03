@@ -49,7 +49,10 @@ public func separatedList<T>(item: AnyTokenParser<T>, sep: GrammarSeparator) -> 
 
 @inlinable
 public func chain<T>(_ parts: [AnyTokenParser<T>]) -> AnyTokenParser<[T]> {
-    parts.dropFirst().reduce(parts.first!.map { [$0] }) { acc, next in
+    guard let first = parts.first else {
+        return AnyTokenParser { .success([], $0) }
+    }
+    return parts.dropFirst().reduce(first.map { [$0] }) { acc, next in
         acc.then(next).map { $0 + [$1] }
     }
 }

@@ -22,6 +22,7 @@ let package = Package(
     dependencies: [
         .package(url: "https://github.com/leviouwendijk/Primitives.git", branch: "master"),
         .package(url: "https://github.com/leviouwendijk/Position.git", branch: "master"),
+        .package(url: "https://github.com/leviouwendijk/Lexing.git", branch: "master"),
         .package(url: "https://github.com/leviouwendijk/Testing.git", branch: "master"),
     ],
     targets: [
@@ -30,6 +31,7 @@ let package = Package(
             dependencies: [
                 .product(name: "Primitives", package: "Primitives"),
                 .product(name: "Position", package: "Position"),
+                .product(name: "Lexing", package: "Lexing"),
             ]
         ),
         .executableTarget(
