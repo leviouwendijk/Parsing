@@ -91,10 +91,12 @@ public extension TokenParser {
             while true {
                 switch self.parse(cur) {
                 case .success(let output, let next):
-                    guard next.index != cur.index else {
+                    guard next.index > cur.index else {
                         return .failure(
                             Diagnostic(
-                                "repeated parser did not consume input"
+                                "repeated parser did not consume input",
+                                range: cur.currentRange,
+                                committed: true
                             )
                         )
                     }

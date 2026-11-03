@@ -86,11 +86,12 @@ public extension Parser {
             while true {
                 switch self.parse(cur) {
                 case .success(let output, let next):
-                    guard next.offset != cur.offset else {
+                    guard next.offset > cur.offset else {
                         return .failure(
                             Diagnostic(
                                 "repeated parser did not consume input",
-                                range: .point(cur.offset)
+                                range: .point(cur.offset),
+                                committed: true
                             )
                         )
                     }
@@ -214,11 +215,12 @@ public struct Many<P: Parser>: Parser {
         while true {
             switch p.parse(cur) {
             case .success(let output, let next):
-                guard next.offset != cur.offset else {
+                guard next.offset > cur.offset else {
                     return .failure(
                         Diagnostic(
                             "repeated parser did not consume input",
-                            range: .point(cur.offset)
+                            range: .point(cur.offset),
+                            committed: true
                         )
                     )
                 }

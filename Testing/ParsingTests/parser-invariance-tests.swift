@@ -196,6 +196,59 @@ func test_parsing_progress_guards() throws {
     }
 }
 
+func test_parsing_monotonic_progress() throws {
+    let characterParser = AnyParser<Int> { cursor in
+        var next = cursor
+        if cursor.offset == 0 {
+            next.advance()
+        } else {
+            next.restore(cursor.input.startIndex)
+        }
+        return .success(cursor.offset, next)
+    }
+
+    for parser in [characterParser.many(), AnyParser(Many(characterParser, min: 0))] {
+        switch parser.parse(Cursor("ab")) {
+        case .success:
+            try Expect.true(false, "repetition must reject a rewinding character parser")
+        case .failure(let diagnostic):
+            try Expect.true(diagnostic.committed, "character progress failure is committed")
+            try Expect.true(diagnostic.range?.start.offset == 1, "character failure position")
+        }
+    }
+
+    let tokenParser = AnyTokenParser<Int> { cursor in
+        var next = cursor
+        next.restore(cursor.index == 0 ? 1 : 0)
+        return .success(cursor.index, next)
+    }
+    let tokens = tokenCursor(.identifier("x"), source: "x")
+    switch tokenParser.many().parse(tokens) {
+    case .success:
+        try Expect.true(false, "repetition must reject a rewinding token parser")
+    case .failure(let diagnostic):
+        try Expect.true(diagnostic.committed, "token progress failure is committed")
+        try Expect.true(diagnostic.range?.start.offset == 1, "token failure position")
+    }
+
+    var advanced = tokens
+    advanced.advance()
+    switch requireProgress(tokenParser).parse(advanced) {
+    case .success:
+        try Expect.true(false, "requireProgress must reject a rewinding parser")
+    case .failure(let diagnostic):
+        try Expect.true(diagnostic.committed, "progress guard failure is committed")
+    }
+
+    let noProgress = AnyParser<Int> { cursor in .success(1, cursor) }
+    switch noProgress.many().optional().parse(Cursor("x")) {
+    case .success:
+        try Expect.true(false, "optional must not hide broken parser progress")
+    case .failure(let diagnostic):
+        try Expect.true(diagnostic.committed, "non-progress failure remains committed")
+    }
+}
+
 func test_parsing_diagnostic_coding() throws {
     let committed = Diagnostic("bad", committed: true)
     let encoded = try JSONEncoder().encode(committed)
@@ -232,6 +285,9 @@ extension ParsingTestSuite {
             }
             Test("progress-guards", tags: ["parsing"]) {
                 try test_parsing_progress_guards()
+            }
+            Test("monotonic-progress", tags: ["parsing", "invariance"]) {
+                try test_parsing_monotonic_progress()
             }
             Test("diagnostic-coding", tags: ["diagnostics"]) {
                 try test_parsing_diagnostic_coding()

@@ -6,7 +6,13 @@ public func requireProgress<T>(_ p: AnyTokenParser<T>) -> AnyTokenParser<T> {
         let start = c.index
         switch p.parse(c) {
         case .success(let v, let next):
-            if next.index == start { return .failure(Diagnostic("parser did not advance")) }
+            guard next.index > start else {
+                return .failure(Diagnostic(
+                    "parser did not advance",
+                    range: c.currentRange,
+                    committed: true
+                ))
+            }
             return .success(v, next)
         case .failure(let d):
             return .failure(d)
