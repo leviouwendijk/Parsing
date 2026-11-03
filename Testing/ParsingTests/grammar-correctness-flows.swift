@@ -295,6 +295,90 @@ extension ParsingTestSuite {
                 }
             }
 
+            Test("unordered grammar enforces field cardinality") {
+                let grammar = try Grammar(
+                    nodes: [GrammarNode(
+                        name: "record",
+                        delimiter: .braces,
+                        order: .unordered,
+                        fields: [
+                            GrammarField("first", .val("string")),
+                            GrammarField("second", .val("string")),
+                            GrammarField("note", .val("string"), multiplicity: .optional(defaultValue: .string("default"))),
+                            GrammarField("tag", .val("string"), multiplicity: .many(sep: .comma))
+                        ]
+                    )],
+                    values: .basic(),
+                    child: { AnyTokenParser<SyntaxNode> { _ in .failure(Diagnostic("unused")) } }
+                )
+
+                func parse(_ source: String) -> TokenParseResult<GrammarResult> {
+                    var options = LexerOptions()
+                    options.emit_whitespace = false
+                    options.emit_newlines = false
+                    var lexer = Lexer(
+                        source: source,
+                        sets: LexingSets(keywords: ["first", "second", "note", "tag"]),
+                        options: options
+                    )
+                    let cursor = TokenCursor(lexedTokens: lexer.lexedTokens(), source: source)
+                    return GrammarCompiler.compile(grammar, node: "record").parse(cursor)
+                }
+
+                switch parse(#"{ tag "one"; second "B"; tag "two","three"; first "A" }"#) {
+                case .failure(let diagnostic):
+                    try Expect.equal(true, false, "valid unordered record: \(diagnostic)")
+                case .success(let result, let next):
+                    try Expect.equal(next.isEOF, true, "all fields consumed")
+                    if case .object("record", let fields) = result,
+                       case .string("A")? = fields["first"]?.first,
+                       case .string("B")? = fields["second"]?.first,
+                       case .string("default")? = fields["note"]?.first {
+                        let tags = fields["tag"] ?? []
+                        try Expect.equal(tags.count, 3, "many fields retain all entries")
+                        if tags.count == 3,
+                           case .string("one") = tags[0],
+                           case .string("two") = tags[1],
+                           case .string("three") = tags[2] {
+                            try Expect.equal(tags.count, 3, "repeated field order preserved")
+                        } else {
+                            try Expect.equal(true, false, "unexpected repeated values")
+                        }
+                    } else {
+                        try Expect.equal(true, false, "unexpected required or default fields")
+                    }
+                }
+
+                switch parse(#"{ first "A"; note "custom"; second "B" }"#) {
+                case .failure(let diagnostic):
+                    try Expect.equal(true, false, "present optional field: \(diagnostic)")
+                case .success(let result, let next):
+                    if case .object("record", let fields) = result,
+                       case .string("custom")? = fields["note"]?.first {
+                        try Expect.equal(next.isEOF, true, "present optional overrides default")
+                    } else {
+                        try Expect.equal(true, false, "optional value must override default")
+                    }
+                }
+
+                let invalid = [
+                    (#"{ second "B" }"#, "Missing required field 'first'"),
+                    (#"{ first "A" }"#, "Missing required field 'second'"),
+                    (#"{ first "A"; second "B"; first "C" }"#, "Duplicate field 'first'"),
+                    (#"{ first "A"; second "B"; note "X"; note "Y" }"#, "Duplicate field 'note'")
+                ]
+
+                for (source, expected) in invalid {
+                    switch parse(source) {
+                    case .success:
+                        try Expect.equal(true, false, "invalid cardinality accepted: \(source)")
+                    case .failure(let diagnostic):
+                        try Expect.equal(diagnostic.message, expected, "field cardinality diagnostic")
+                        try Expect.equal(diagnostic.committed, true, "cardinality failure commits")
+                    }
+                }
+            }
+
             Test("duplicate anonymous map keys fail without trapping") {
                 let grammar = try Grammar(
                     nodes: [GrammarNode(

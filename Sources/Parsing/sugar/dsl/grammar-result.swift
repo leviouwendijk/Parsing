@@ -200,8 +200,36 @@ public extension Grammar {
         return withOpener.then(delimitedBody).flatMap { _, pairs in
             // Merge into name → [nodes]
             var bucket: [String: [SyntaxNode]] = [:]
-            for (k, vs) in pairs where !vs.isEmpty {
-                bucket[k, default: []].append(contentsOf: vs)
+            for (key, values) in pairs where !values.isEmpty {
+                if bucket[key] != nil,
+                   let field = n.fields.first(where: { $0.name == key }) {
+                    switch field.multiplicity {
+                    case .one, .optional:
+                        return AnyTokenParser { cursor in
+                            .failure(Diagnostic(
+                                "Duplicate field '\(key)'",
+                                range: cursor.currentRange,
+                                committed: true
+                            ))
+                        }
+                    case .many:
+                        break
+                    }
+                }
+                bucket[key, default: []].append(contentsOf: values)
+            }
+
+            // Required fields are intrinsic to the grammar, not optional validators.
+            for field in n.fields {
+                if case .one = field.multiplicity, bucket[field.name] == nil {
+                    return AnyTokenParser { cursor in
+                        .failure(Diagnostic(
+                            "Missing required field '\(field.name)'",
+                            range: cursor.currentRange,
+                            committed: true
+                        ))
+                    }
+                }
             }
 
             // Inject defaults for *optional* fields that were not present
