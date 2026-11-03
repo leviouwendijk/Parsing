@@ -42,9 +42,26 @@ public func delimited<T>(_ d: GrammarNode.Delim, body: AnyTokenParser<T>) -> Any
 }
 
 @inlinable
-public func separatedList<T>(item: AnyTokenParser<T>, sep: GrammarSeparator) -> AnyTokenParser<[T]> {
-    let s = separator(sep)
-    return item.then(s.optional()).many(min: 0).map { $0.map { $0.0 } }
+public func separatedList<T: Sendable>(
+    item: AnyTokenParser<T>,
+    sep: GrammarSeparator,
+    min: Int = 0
+) -> AnyTokenParser<[T]> {
+    if case .none = sep {
+        return item.many(min: max(0, min))
+    }
+
+    let delimiter = separator(sep)
+    let tail = delimiter.keep(item).many(min: min > 1 ? min - 1 : 0)
+    let trailing = delimiter.many(min: 0)
+    let nonempty = item.then(tail).then(trailing).map { pair, _ in
+        let (first, rest) = pair
+        return [first] + rest
+    }
+
+    return min > 0
+        ? nonempty
+        : nonempty.orElse(AnyTokenParser { .success([], $0) })
 }
 
 @inlinable

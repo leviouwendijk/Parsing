@@ -41,33 +41,8 @@ public extension Grammar {
             let item = compileValue(g, elem)
             return separatedList(item: item, sep: sep).map(SyntaxNode.list)
 
-        case .map(let val, let sep, _ /* allowUnknown */):
-            let key  = TokenParsers.identifier()
-            let pair = key
-                .skip(Expect(.equals))
-                .then(compileValue(g, val))            // (String, SyntaxNode)
-                .map { (k, v) in (k, v) }
-
-            return delimited(
-                .braces,
-                body: pair
-                    // .then(separator(sep).optional())    // ((String,SyntaxNode), Void?)
-                    .then(separator(sep).many(min: 0))
-                    .many(min: 0)
-                    .map { $0.map { $0.0 } }            // [(String, SyntaxNode)]
-            )
-            .flatMap { pairs -> AnyTokenParser<SyntaxNode> in
-                var dict: [String: SyntaxNode] = [:]
-                for (key, value) in pairs {
-                    guard dict.updateValue(value, forKey: key) == nil else {
-                        return AnyTokenParser { _ in
-                            .failure(Diagnostic("Duplicate map key '\(key)'", committed: true))
-                        }
-                    }
-                }
-                let result = SyntaxNode.map(dict)
-                return AnyTokenParser { .success(result, $0) }
-            }
+        case .map(let value, let sep, _):
+            return delimited(.braces, body: mapPairs(g, value: value, sep: sep))
 
         case .oneOf(let arr):
             guard let first = arr.first else {
@@ -82,6 +57,31 @@ public extension Grammar {
         case .raw(let p):
             return p
         }
+    }
+
+    private static func mapPairs(
+        _ grammar: Grammar,
+        value: GrammarValue,
+        sep: GrammarSeparator,
+        min: Int = 0
+    ) -> AnyTokenParser<SyntaxNode> {
+        let pair = TokenParsers.identifier()
+            .skip(Expect(.equals))
+            .then(compileValue(grammar, value))
+
+        return separatedList(item: pair, sep: sep, min: min)
+            .flatMap { pairs -> AnyTokenParser<SyntaxNode> in
+                var values: [String: SyntaxNode] = [:]
+                for (key, value) in pairs {
+                    guard values.updateValue(value, forKey: key) == nil else {
+                        return AnyTokenParser { _ in
+                            .failure(Diagnostic("Duplicate map key '\(key)'", committed: true))
+                        }
+                    }
+                }
+                let node = SyntaxNode.map(values)
+                return AnyTokenParser { .success(node, $0) }
+            }
     }
 
     private static func buildNodeParser(_ g: Grammar, _ n: GrammarNode) -> AnyTokenParser<GrammarResult> {
@@ -205,46 +205,22 @@ public extension Grammar {
             // If exactly one field and it is a .map, also accept a raw map payload in the node body.
             if n.fields.count == 1,
                case let .map(val, sep, _) = n.fields[0].value {
-                // Build "a = <val>" pairs (no outer braces; node braces are already in effect)
-                let pair = TokenParsers.identifier()
-                    .skip(Expect(.equals))
-                    .then(compileValue(g, val))          // (String, SyntaxNode)
-                    .map { (k, v) in (k, v) }
+                // A missing explicit field is a recoverable mismatch, not an invariant failure.
+                let explicitNonEmpty = AnyTokenParser<[(String, [SyntaxNode])]> { cursor in
+                    switch explicit.parse(cursor) {
+                    case .success(let fields, let next) where next.index > cursor.index:
+                        return .success(fields, next)
+                    case .success:
+                        return .failure(Diagnostic("expected explicit field", range: cursor.currentRange))
+                    case .failure(let diagnostic):
+                        return .failure(diagnostic)
+                    }
+                }
 
-                // let anonMap: AnyTokenParser<[(String,[SyntaxNode])]> =
-                //     pair.then(separator(sep).optional())
-                //         .many(min: 0)
-                //         .map { pairs in
-                //             let dict = Dictionary(uniqueKeysWithValues: pairs.map { $0.0 })
-                //             // Wrap under the declared field name
-                //             return [(n.fields[0].name, [ .map(dict) ])]
-                //         }
-                // Require at least one k=v pair to avoid empty success that prevents the closing '}' from matching.
-                let anonMap: AnyTokenParser<[(String,[SyntaxNode])]> =
-                    pair.then(separator(sep).optional())
-                        .many(min: 1) // <- was 0
-                        .flatMap { pairs -> AnyTokenParser<[(String, [SyntaxNode])]> in
-                            var dict: [String: SyntaxNode] = [:]
-                            for (entry, _) in pairs {
-                                let (key, value) = entry
-                                guard dict.updateValue(value, forKey: key) == nil else {
-                                    return AnyTokenParser { _ in
-                                        .failure(Diagnostic("Duplicate map key '\(key)'", committed: true))
-                                    }
-                                }
-                            }
-                            let result: [(String, [SyntaxNode])] = [
-                                (n.fields[0].name, [.map(dict)])
-                            ]
-                            return AnyTokenParser { .success(result, $0) }
-                        }
+                // The node's own delimiter supplies braces; require a nonempty raw map.
+                let anonMap = mapPairs(g, value: val, sep: sep, min: 1)
+                    .map { node in [(n.fields[0].name, [node])] }
 
-                // // Try explicit fields first; if none match, accept anonymous map
-                // return delimited(n.delimiter, body: explicit.orElse(anonMap))
-
-                // Try explicit fields *only if it made progress*;
-                // otherwise, fall back to anonymous body parsing.
-                let explicitNonEmpty = requireProgress(explicit)
                 return delimited(n.delimiter, body: explicitNonEmpty.orElse(anonMap))
             } else {
                 return delimited(n.delimiter, body: explicit)
