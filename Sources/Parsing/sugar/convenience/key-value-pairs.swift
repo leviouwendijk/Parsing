@@ -30,9 +30,18 @@ public func keyValuePairs<Value: Sendable>(
     return TokenParsers.braces(
         pair.then(pairSeparator.optional())
             .many(min: 0)
-            .map { pairs in
-                let dict: [String: Value] = Dictionary(uniqueKeysWithValues: pairs.map { $0.0 })
-                return dict
+            .flatMap { pairs -> AnyTokenParser<[String: Value]> in
+                var values: [String: Value] = [:]
+                for (entry, _) in pairs {
+                    let (key, value) = entry
+                    guard values.updateValue(value, forKey: key) == nil else {
+                        return AnyTokenParser { _ in
+                            .failure(Diagnostic("Duplicate key '\(key)'", committed: true))
+                        }
+                    }
+                }
+                let frozen = values
+                return AnyTokenParser { .success(frozen, $0) }
             }
     )
 }

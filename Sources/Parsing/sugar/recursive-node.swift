@@ -22,11 +22,18 @@ public func recursiveNode(
     let mapBody =
         kv.then(AnyTokenParser(Expect(.semicolon)).optional().map { (_: Token?) in () })
           .many(min: 0)
-          .map { (pairs: [((String, SyntaxNode), Void?)]) -> SyntaxNode in
-              let dict: [String: SyntaxNode] = Dictionary(
-                  uniqueKeysWithValues: pairs.map { ($0.0.0, $0.0.1) }
-              )
-              return .map(dict)
+          .flatMap { pairs -> AnyTokenParser<SyntaxNode> in
+              var values: [String: SyntaxNode] = [:]
+              for (entry, _) in pairs {
+                  let (key, value) = entry
+                  guard values.updateValue(value, forKey: key) == nil else {
+                      return AnyTokenParser { _ in
+                          .failure(Diagnostic("Duplicate map key '\(key)'", committed: true))
+                      }
+                  }
+              }
+              let node = SyntaxNode.map(values)
+              return AnyTokenParser { .success(node, $0) }
           }
 
     let listBody =

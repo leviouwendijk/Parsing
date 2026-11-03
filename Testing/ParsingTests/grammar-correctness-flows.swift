@@ -453,6 +453,65 @@ extension ParsingTestSuite {
                 }
             }
 
+            Test("generic key-value pairs reject duplicate keys") {
+                func parse(_ source: String) -> TokenParseResult<[String: String]> {
+                    var options = LexerOptions()
+                    options.emit_whitespace = false
+                    options.emit_newlines = false
+                    var lexer = Lexer(source: source, sets: LexingSets(keywords: []), options: options)
+                    let cursor = TokenCursor(lexedTokens: lexer.lexedTokens(), source: source)
+                    return keyValuePairs(allowedKeys: [], value: TokenParsers.string()).parse(cursor)
+                }
+
+                switch parse(#"{ alpha = "x"; beta = "y" }"#) {
+                case .failure(let diagnostic):
+                    try Expect.equal(true, false, "valid key-value pairs: \(diagnostic)")
+                case .success(let values, let next):
+                    try Expect.equal(values["alpha"], "x", "first value")
+                    try Expect.equal(values["beta"], "y", "second value")
+                    try Expect.equal(next.isEOF, true, "entire map consumed")
+                }
+                switch parse(#"{ alpha = "x"; alpha = "y" }"#) {
+                case .success:
+                    try Expect.equal(true, false, "duplicate keys must not succeed")
+                case .failure(let diagnostic):
+                    try Expect.equal(diagnostic.message, "Duplicate key 'alpha'", "duplicate name")
+                    try Expect.equal(diagnostic.committed, true, "duplicate failure committed")
+                }
+            }
+
+            Test("recursive node maps reject duplicate keys") {
+                func parse(_ source: String) -> TokenParseResult<SyntaxNode> {
+                    var options = LexerOptions()
+                    options.emit_whitespace = false
+                    options.emit_newlines = false
+                    var lexer = Lexer(source: source, sets: LexingSets(keywords: []), options: options)
+                    let cursor = TokenCursor(lexedTokens: lexer.lexedTokens(), source: source)
+                    let parser = recursiveNode(child: { TokenParsers.string().map(SyntaxNode.string) })
+                    return parser.parse(cursor)
+                }
+
+                switch parse(#"{ alpha = "x"; beta = "y" }"#) {
+                case .failure(let diagnostic):
+                    try Expect.equal(true, false, "valid recursive map: \(diagnostic)")
+                case .success(let result, let next):
+                    if case .map(let values) = result,
+                       case .string("x")? = values["alpha"],
+                       case .string("y")? = values["beta"] {
+                        try Expect.equal(next.isEOF, true, "recursive map fully consumed")
+                    } else {
+                        try Expect.equal(true, false, "expected typed recursive map")
+                    }
+                }
+                switch parse(#"{ alpha = "x"; alpha = "y" }"#) {
+                case .success:
+                    try Expect.equal(true, false, "duplicate recursive keys must not succeed")
+                case .failure(let diagnostic):
+                    try Expect.equal(diagnostic.message, "Duplicate map key 'alpha'", "duplicate name")
+                    try Expect.equal(diagnostic.committed, true, "recursive duplicate failure committed")
+                }
+            }
+
             Test("duplicate anonymous map keys fail without trapping") {
                 let grammar = try Grammar(
                     nodes: [GrammarNode(
