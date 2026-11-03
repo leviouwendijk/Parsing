@@ -30,6 +30,7 @@ public extension Grammar {
             }
             if let p: AnyTokenParser<Decimal> = g.values.make(nm) { return p.map(SyntaxNode.number) }
             if let p: AnyTokenParser<Int>     = g.values.make(nm) { return p.map { .number(Decimal($0)) } }
+            if let p: AnyTokenParser<Bool>    = g.values.make(nm) { return p.map(SyntaxNode.boolean) }
             if let p: AnyTokenParser<SyntaxNode> = g.values.make(nm) { return p }
             return AnyTokenParser { _ in .failure(Diagnostic("No value parser named \(nm)")) }
 

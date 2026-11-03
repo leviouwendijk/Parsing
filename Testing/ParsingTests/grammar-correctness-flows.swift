@@ -34,6 +34,45 @@ extension ParsingTestSuite {
                 }
             }
 
+            Test("Boolean grammar values remain typed") {
+                let grammar = try Grammar(
+                    nodes: [GrammarNode(
+                        name: "settings",
+                        delimiter: .none,
+                        order: .ordered,
+                        fields: [GrammarField("enabled", .val("bool"))]
+                    )],
+                    values: .basic(),
+                    child: { AnyTokenParser<SyntaxNode> { _ in .failure(Diagnostic("unused")) } }
+                )
+
+                for (source, expected) in [("enabled true", true), ("enabled false", false)] {
+                    var options = LexerOptions()
+                    options.emit_whitespace = false
+                    var lexer = Lexer(
+                        source: source,
+                        sets: LexingSets(keywords: ["enabled", "true", "false"]),
+                        options: options
+                    )
+                    let cursor = TokenCursor(lexedTokens: lexer.lexedTokens(), source: source)
+                    switch GrammarCompiler.compile(grammar, node: "settings").parse(cursor) {
+                    case .failure(let diagnostic):
+                        try Expect.equal(true, false, "unexpected Boolean failure: \(diagnostic)")
+                    case .success(let result, let next):
+                        if case .object(let name, let fields) = result,
+                           name == "settings",
+                           let values = fields["enabled"],
+                           values.count == 1,
+                           case .boolean(let actual) = values[0] {
+                            try Expect.equal(actual, expected, "typed Boolean value")
+                            try Expect.equal(next.isEOF, true, "entire input consumed")
+                        } else {
+                            try Expect.equal(true, false, "expected a Boolean syntax node")
+                        }
+                    }
+                }
+            }
+
             Test("empty alternatives fail with a diagnostic instead of crashing") {
                 let grammar = try Grammar(
                     nodes: [GrammarNode(
