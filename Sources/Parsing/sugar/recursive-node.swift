@@ -49,10 +49,12 @@ public func recursiveNode(
               !t.sameCase(as: .right_bracket) {
             cur.advance()
         }
-        let range = PositionRange(
-            uncheckedStart: .init(start),
-            uncheckedEnd: .init(cur.index)
-        )
+        guard let range = cur.sourceRange(from: start) else {
+            return .failure(Diagnostic(
+                "Source provenance unavailable for unknown syntax node",
+                committed: true
+            ))
+        }
         return .success(.unknown(range), cur)
     })
 }

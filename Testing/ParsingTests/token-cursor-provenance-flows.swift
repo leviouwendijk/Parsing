@@ -9,6 +9,24 @@ extension ParsingTestSuite {
             "token-cursor-provenance",
             tags: ["cursor", "position", "range"]
         ) {
+            Test("positioned parser returns source characters, not token indices") {
+                let source = "💡 alpha"
+                var options = Lexer.Options()
+                options.unsupported = .skip
+                var lexer = Lexer(source: source, sets: .init(keywords: []), options: options)
+                let cursor = TokenCursor(lexedTokens: lexer.lexedTokens(), source: source)
+                switch positioned(TokenParsers.identifier()).parse(cursor) {
+                case .failure(let diagnostic):
+                    try Expect.equal(true, false, diagnostic.message)
+                case .success(let result, let next):
+                    try Expect.equal(result.0, "alpha", "parsed identifier")
+                    try Expect.equal(result.1.offsets, 2..<7, "exact Character span")
+                    let bytes = try Expect.notNil(next.utf8Range(from: 0), "byte span")
+                    try Expect.equal(bytes.lowerBound.offset, 5, "byte start")
+                    try Expect.equal(bytes.upperBound.offset, 10, "byte end")
+                }
+            }
+
             Test("cursor preserves token ergonomics while deriving exact source ranges") {
                 let source = "alpha beta"
                 var lexer = Lexer(

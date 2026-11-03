@@ -20,10 +20,9 @@ public func recoverUntil(
             }
             cur.advance()
         }
-        let r = PositionRange(
-            uncheckedStart: .init(start),
-            uncheckedEnd: .init(cur.index)
-        )
-        return .failure(Diagnostic(message, range: r))
+        return .failure(Diagnostic(
+            message,
+            range: cur.sourceRange(from: start)
+        ))
     }
 }

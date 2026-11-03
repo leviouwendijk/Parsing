@@ -9,13 +9,13 @@ public func positioned<T: Sendable>(_ inner: AnyTokenParser<T>) -> AnyTokenParse
         switch inner.parse(cur) {
         case .failure(let d): return .failure(d)
         case .success(let v, let next):
-            let n = next
-            let range = PositionRange(
-                uncheckedStart: .init(start),
-                uncheckedEnd: .init(n.index)
-            )
-
-            return .success((v, range), n)
+            guard let range = next.sourceRange(from: start) else {
+                return .failure(Diagnostic(
+                    "Source provenance unavailable for positioned parser",
+                    committed: true
+                ))
+            }
+            return .success((v, range), next)
         }
     }
 }

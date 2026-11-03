@@ -132,6 +132,27 @@ public struct TokenCursor: Sendable {
         )
     }
 
+    /// Exact byte span of consumed lexemes; returns nil when unavailable.
+    public func utf8Range(from mark: Int) -> Range<Position.Offset<Position.Unit.UTF8>>? {
+        guard let lexedTokens, !lexedTokens.isEmpty,
+              mark >= 0, mark <= index, index <= lexedTokens.count else {
+            return nil
+        }
+        if mark == lexedTokens.count {
+            guard let end = lexedTokens.last?.utf8Range?.upperBound else { return nil }
+            return end..<end
+        }
+        if index == mark {
+            guard let start = lexedTokens[mark].utf8Range?.lowerBound else { return nil }
+            return start..<start
+        }
+        guard let start = lexedTokens[mark].utf8Range?.lowerBound,
+              let end = lexedTokens[index - 1].utf8Range?.upperBound else {
+            return nil
+        }
+        return start..<end
+    }
+
     public func position(at sourceIndex: PositionIndex) -> Position? {
         if let lineTable {
             return lineTable.position(
