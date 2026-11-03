@@ -144,7 +144,23 @@ public extension Grammar {
             body = oneFieldNP.many(min: 0)
 
         case .ordered:
-            let parts = n.fields.map { f -> AnyTokenParser<(String, [SyntaxNode])> in fieldShape(f) }
+            let parts = n.fields.map { field -> AnyTokenParser<(String, [SyntaxNode])> in
+                let parser = fieldShape(field)
+                guard case .optional = field.multiplicity else { return parser }
+
+                // Only an absent key is optional; a present key must parse its value.
+                let key = TokenParsers.keyword(.raw(field.name))
+                return AnyTokenParser { cursor in
+                    switch key.parse(cursor) {
+                    case .success:
+                        return parser.parse(cursor)
+                    case .failure(let diagnostic) where diagnostic.committed:
+                        return .failure(diagnostic)
+                    case .failure:
+                        return .success((field.name, []), cursor)
+                    }
+                }
+            }
             body = chain(parts)
         }
 

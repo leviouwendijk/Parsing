@@ -211,6 +211,90 @@ extension ParsingTestSuite {
                 }
             }
 
+            Test("ordered optional fields distinguish absence from invalid values") {
+                let grammar = try Grammar(
+                    nodes: [GrammarNode(
+                        name: "ordered",
+                        delimiter: .none,
+                        order: .ordered,
+                        fields: [
+                            GrammarField("prefix", .val("string"), multiplicity: .optional(defaultValue: .string("P"))),
+                            GrammarField("start", .val("string")),
+                            GrammarField("note", .val("string"), multiplicity: .optional(defaultValue: .string("N"))),
+                            GrammarField("alias", .val("string"), multiplicity: .optional()),
+                            GrammarField("end", .val("string")),
+                            GrammarField("suffix", .val("string"), multiplicity: .optional(defaultValue: .string("S")))
+                        ]
+                    )],
+                    values: .basic(),
+                    child: { AnyTokenParser<SyntaxNode> { _ in .failure(Diagnostic("unused")) } }
+                )
+
+                func parse(_ source: String) -> TokenParseResult<GrammarResult> {
+                    var options = LexerOptions()
+                    options.emit_whitespace = false
+                    options.emit_newlines = false
+                    var lexer = Lexer(
+                        source: source,
+                        sets: LexingSets(keywords: ["prefix", "start", "note", "alias", "end", "suffix"]),
+                        options: options
+                    )
+                    let cursor = TokenCursor(lexedTokens: lexer.lexedTokens(), source: source)
+                    return GrammarCompiler.compile(grammar, node: "ordered").parse(cursor)
+                }
+
+                let valid: [(String, [String: String])] = [
+                    (
+                        "start \"a\" end \"z\"",
+                        ["prefix": "P", "start": "a", "note": "N", "end": "z", "suffix": "S"]
+                    ),
+                    (
+                        "prefix \"p\" start \"a\" note = \"b\" alias \"c\" end \"z\" suffix \"s\"",
+                        ["prefix": "p", "start": "a", "note": "b", "alias": "c", "end": "z", "suffix": "s"]
+                    ),
+                    (
+                        "start \"a\" alias \"c\" end \"z\"",
+                        ["prefix": "P", "start": "a", "note": "N", "alias": "c", "end": "z", "suffix": "S"]
+                    )
+                ]
+
+                for (source, expected) in valid {
+                    switch parse(source) {
+                    case .failure(let diagnostic):
+                        try Expect.equal(true, false, "valid ordered fields: \(diagnostic)")
+                    case .success(let result, let next):
+                        try Expect.equal(next.isEOF, true, "ordered fields consume input")
+                        if case .object(let name, let fields) = result {
+                            try Expect.equal(name, "ordered", "node identity")
+                            try Expect.equal(fields.count, expected.count, "absent fields without defaults are omitted")
+                            for (key, wanted) in expected {
+                                if let nodes = fields[key], nodes.count == 1,
+                                   case .string(let actual) = nodes[0] {
+                                    try Expect.equal(actual, wanted, "field \(key)")
+                                } else {
+                                    try Expect.equal(true, false, "missing or incorrectly typed field \(key)")
+                                }
+                            }
+                        } else {
+                            try Expect.equal(true, false, "expected ordered object")
+                        }
+                    }
+                }
+
+                for source in [
+                    "start \"a\" note 123 end \"z\"",
+                    "start \"a\" note end \"z\"",
+                    "start \"a\""
+                ] {
+                    switch parse(source) {
+                    case .success:
+                        try Expect.equal(true, false, "malformed or missing required value must fail: \(source)")
+                    case .failure:
+                        break
+                    }
+                }
+            }
+
             Test("duplicate anonymous map keys fail without trapping") {
                 let grammar = try Grammar(
                     nodes: [GrammarNode(
