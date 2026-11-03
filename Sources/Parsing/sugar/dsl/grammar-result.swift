@@ -32,7 +32,7 @@ public extension Grammar {
             let item = compileValue(g, elem)
             return separatedList(item: item, sep: sep).map(SyntaxNode.list)
 
-        case .map(let value, let sep, _):
+        case .map(let value, let sep):
             return delimited(.braces, body: mapPairs(g, value: value, sep: sep))
 
         case .oneOf(let arr):
@@ -169,7 +169,7 @@ public extension Grammar {
 
             // If exactly one field and it is a .map, also accept a raw map payload in the node body.
             if n.fields.count == 1,
-               case let .map(val, sep, _) = n.fields[0].value {
+               case let .map(val, sep) = n.fields[0].value {
                 // A missing explicit field is a recoverable mismatch, not an invariant failure.
                 let explicitNonEmpty = AnyTokenParser<[(String, [SyntaxNode])]> { cursor in
                     switch explicit.parse(cursor) {

@@ -5,7 +5,7 @@ public extension Grammar {
     case val(_ name: String)                     // use registered parser by name (e.g., "decimal")
     case node(_ ref: String)                     // reference to another GrammarNode (nesting/recursion)
     case list(_ elem: GrammarValue, sep: GrammarSeparator = .commaOrNewline)
-    case map(_ value: GrammarValue, sep: GrammarSeparator = .semicolonOrNewline, allowUnknownKeys: Bool = true)
+    case map(_ value: GrammarValue, sep: GrammarSeparator = .semicolonOrNewline)
     case oneOf([GrammarValue])                         // alternatives
     case raw(_ p: AnyTokenParser<SyntaxNode>)    // escape hatch
 
