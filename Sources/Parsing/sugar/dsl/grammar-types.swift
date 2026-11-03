@@ -84,9 +84,8 @@ public extension Grammar {
 public struct Grammar: Sendable {
     public let nodes: [String: GrammarNode]
     public let values: ParserComponents
-    public let child: @Sendable () -> AnyTokenParser<SyntaxNode>   // open recursion provider
 
-    public init(nodes: [GrammarNode], values: ParserComponents, child: @escaping @Sendable () -> AnyTokenParser<SyntaxNode>) throws {
+    public init(nodes: [GrammarNode], values: ParserComponents) throws {
         var indexed: [String: GrammarNode] = [:]
         for node in nodes {
             guard indexed.updateValue(node, forKey: node.name) == nil else {
@@ -95,6 +94,5 @@ public struct Grammar: Sendable {
         }
         self.nodes = indexed
         self.values = values
-        self.child = child
     }
 }

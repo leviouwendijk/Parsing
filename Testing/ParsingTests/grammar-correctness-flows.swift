@@ -13,12 +13,52 @@ extension ParsingTestSuite {
                 do {
                     _ = try Grammar(
                         nodes: nodes,
-                        values: .basic(),
-                        child: { AnyTokenParser<SyntaxNode> { _ in .failure(Diagnostic("unused")) } }
+                        values: .basic()
                     )
                     try Expect.equal(true, false, "duplicate grammar must fail")
                 } catch let error as GrammarError {
                     try Expect.equal(error, .duplicate_node("duplicate"), "typed duplicate error")
+                }
+            }
+
+            Test("nested grammar references use declared nodes") {
+                let grammar = try Grammar(
+                    nodes: [
+                        GrammarNode(
+                            name: "outer", opener: .raw("outer"), delimiter: .braces,
+                            order: .ordered,
+                            fields: [GrammarField("nested", .node("inner"))]
+                        ),
+                        GrammarNode(
+                            name: "inner", opener: .raw("inner"), delimiter: .braces,
+                            order: .ordered,
+                            fields: [GrammarField("value", .val("string"))]
+                        )
+                    ],
+                    values: .basic()
+                )
+                let source = #"outer { nested inner { value "ok" } }"#
+                var options = LexerOptions()
+                options.emit_whitespace = false
+                options.emit_newlines = false
+                var lexer = Lexer(
+                    source: source,
+                    sets: LexingSets(keywords: ["outer", "nested", "inner", "value"]),
+                    options: options
+                )
+                let cursor = TokenCursor(lexedTokens: lexer.lexedTokens(), source: source)
+                switch GrammarCompiler.compile(grammar, node: "outer").parse(cursor) {
+                case .failure(let diagnostic):
+                    try Expect.equal(true, false, "nested node failed: \(diagnostic)")
+                case .success(let result, let next):
+                    if case .object("outer", let fields) = result,
+                       case .map(let nested)? = fields["nested"]?.first,
+                       case .atom("inner")? = nested["_type"],
+                       case .string("ok")? = nested["value"] {
+                        try Expect.equal(next.isEOF, true, "nested grammar consumed all input")
+                    } else {
+                        try Expect.equal(true, false, "nested node was not folded")
+                    }
                 }
             }
 
@@ -42,8 +82,7 @@ extension ParsingTestSuite {
                         order: .ordered,
                         fields: [GrammarField("enabled", .val("bool"))]
                     )],
-                    values: .basic(),
-                    child: { AnyTokenParser<SyntaxNode> { _ in .failure(Diagnostic("unused")) } }
+                    values: .basic()
                 )
 
                 for (source, expected) in [("enabled true", true), ("enabled false", false)] {
@@ -81,8 +120,7 @@ extension ParsingTestSuite {
                         order: .ordered,
                         fields: [GrammarField("x", .oneOf([]))]
                     )],
-                    values: .basic(),
-                    child: { AnyTokenParser<SyntaxNode> { _ in .failure(Diagnostic("unused")) } }
+                    values: .basic()
                 )
                 var lexer = Lexer(source: "x", sets: LexingSets(keywords: ["x"]))
                 let cursor = TokenCursor(lexedTokens: lexer.lexedTokens(), source: "x")
@@ -146,8 +184,7 @@ extension ParsingTestSuite {
                         order: .ordered,
                         fields: [GrammarField("values", .map(.val("string"), sep: .semicolon))]
                     )],
-                    values: .basic(),
-                    child: { AnyTokenParser<SyntaxNode> { _ in .failure(Diagnostic("unused")) } }
+                    values: .basic()
                 )
 
                 func parse(_ source: String) -> TokenParseResult<GrammarResult> {
@@ -226,8 +263,7 @@ extension ParsingTestSuite {
                             GrammarField("suffix", .val("string"), multiplicity: .optional(defaultValue: .string("S")))
                         ]
                     )],
-                    values: .basic(),
-                    child: { AnyTokenParser<SyntaxNode> { _ in .failure(Diagnostic("unused")) } }
+                    values: .basic()
                 )
 
                 func parse(_ source: String) -> TokenParseResult<GrammarResult> {
@@ -308,8 +344,7 @@ extension ParsingTestSuite {
                             GrammarField("tag", .val("string"), multiplicity: .many(sep: .comma))
                         ]
                     )],
-                    values: .basic(),
-                    child: { AnyTokenParser<SyntaxNode> { _ in .failure(Diagnostic("unused")) } }
+                    values: .basic()
                 )
 
                 func parse(_ source: String) -> TokenParseResult<GrammarResult> {
@@ -395,8 +430,7 @@ extension ParsingTestSuite {
                             order: .unordered,
                             fields: []
                         )],
-                        values: .basic(),
-                        child: { AnyTokenParser<SyntaxNode> { _ in .failure(Diagnostic("unused")) } }
+                        values: .basic()
                     )
                     var options = LexerOptions()
                     options.emit_whitespace = false
@@ -520,8 +554,7 @@ extension ParsingTestSuite {
                         delimiter: .braces,
                         fields: [GrammarField("kv", .map(.val("string")))]
                     )],
-                    values: .basic(),
-                    child: { AnyTokenParser<SyntaxNode> { _ in .failure(Diagnostic("unused")) } }
+                    values: .basic()
                 )
                 let source = #"pairs { a = "x"; a = "y" }"#
                 var lexer = Lexer(source: source, sets: LexingSets(keywords: ["pairs", "kv"]))

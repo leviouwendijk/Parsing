@@ -34,12 +34,6 @@
 //     ]
 // )
 
-// let grammar = Grammar(
-//     nodes: [entryNode, lineNode],
-//     values: V,
-//     child: { /* open recursion fallback if you want nested unknowns */
-//         AnyTokenParser { .failure(Diagnostic("no child")) }
-//     }
-// )
+// let grammar = try Grammar(nodes: [entryNode, lineNode], values: V)
 
 // let parser = GrammarCompiler.compile(grammar, node: "entry")  // AnyTokenParser<GResult>

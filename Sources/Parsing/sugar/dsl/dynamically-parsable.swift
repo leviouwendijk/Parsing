@@ -14,12 +14,9 @@ public protocol DynamicallyParsable: Parsable {
 
 public extension DynamicallyParsable {
     static func parser() throws -> AnyTokenParser<Self> {
-        let grammar = try Grammar(
-            nodes: [grammarNode()],
-            values: parserComponents(),
-            child: { AnyTokenParser { _ in .failure(Diagnostic("no child")) } }
-        )
-        let p = GrammarCompiler.compile(grammar, node: grammarNode().name) // → AnyTokenParser<GResult>
+        let node = grammarNode()
+        let grammar = try Grammar(nodes: [node], values: parserComponents())
+        let p = GrammarCompiler.compile(grammar, node: node.name) // → AnyTokenParser<GResult>
         return p.map { fold($0) }                                           // → SyntaxNode
         .flatMap { syn in
             AnyTokenParser<Self> { c in
