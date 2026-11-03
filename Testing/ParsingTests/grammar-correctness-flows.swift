@@ -2,6 +2,34 @@ import Foundation
 import Parsing
 import Testing
 
+private enum GrammarModelDecodeError: Error {
+    case invalid
+}
+
+private struct GrammarTestModel: DynamicallyParsable {
+    let value: String
+
+    static func parserComponents() -> ParserComponents { .basic() }
+
+    static func grammarNode() -> GrammarNode {
+        GrammarNode(
+            name: "model",
+            delimiter: .none,
+            order: .ordered,
+            fields: [GrammarField("value", .val("string"))]
+        )
+    }
+
+    static func fromSyntax(_ node: SyntaxNode) throws -> Self {
+        guard case .map(let fields) = node,
+              case .atom("model")? = fields["_type"],
+              case .string(let value)? = fields["value"] else {
+            throw GrammarModelDecodeError.invalid
+        }
+        return Self(value: value)
+    }
+}
+
 extension ParsingTestSuite {
     static var grammarCorrectnessSuite: TestSuite {
         TestSuite("grammar-correctness", tags: ["grammar", "correctness"]) {
@@ -18,6 +46,38 @@ extension ParsingTestSuite {
                     try Expect.equal(true, false, "duplicate grammar must fail")
                 } catch let error as GrammarError {
                     try Expect.equal(error, .duplicate_node("duplicate"), "typed duplicate error")
+                }
+            }
+
+            Test("reserved grammar metadata field is rejected at construction") {
+                do {
+                    _ = try Grammar(
+                        nodes: [GrammarNode(
+                            name: "record",
+                            fields: [GrammarField("_type", .val("string"))]
+                        )],
+                        values: .basic()
+                    )
+                    try Expect.equal(true, false, "reserved field must not overwrite node identity")
+                } catch let error as GrammarError {
+                    try Expect.equal(
+                        error,
+                        .reserved_field(node: "record", field: "_type"),
+                        "typed reserved field error"
+                    )
+                }
+            }
+
+            Test("DynamicallyParsable needs no unused cursor factory") {
+                let source = #"value "ok""#
+                var lexer = Lexer(source: source, sets: LexingSets(keywords: ["value"]))
+                let cursor = TokenCursor(lexedTokens: lexer.lexedTokens(), source: source)
+                switch try GrammarTestModel.parse(cursor) {
+                case .failure(let diagnostic):
+                    try Expect.equal(true, false, "dynamic grammar failed: \(diagnostic)")
+                case .success(let model, let next):
+                    try Expect.equal(model.value, "ok", "typed grammar conversion")
+                    try Expect.equal(next.isEOF, true, "dynamic parser consumed entire input")
                 }
             }
 

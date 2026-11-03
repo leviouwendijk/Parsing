@@ -5,10 +5,7 @@ public protocol DynamicallyParsable: Parsable {
     static func parserComponents() -> ParserComponents
     /// Provide the node spec that represents this model in the DSL.
     static func grammarNode() -> GrammarNode
-    /// Optional: customize lexing (keywords, string-block policies, …) per DSL.
-    static func makeCursor(for source: String) -> TokenCursor
-
-    /// Map folded SyntaxNode (produced by DynamicallyCompiler + fold) into the concrete model.
+    /// Map the folded GrammarCompiler result into the concrete model.
     static func fromSyntax(_ node: SyntaxNode) throws -> Self
 }
 

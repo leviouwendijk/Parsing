@@ -9,9 +9,8 @@ public extension Grammar {
     case oneOf([GrammarValue])                         // alternatives
     case raw(_ p: AnyTokenParser<SyntaxNode>)    // escape hatch
 
-    static func optional(_ inner: GrammarValue, default def: SyntaxNode? = nil) -> GrammarValue {
-        .oneOf([inner, .raw(AnyTokenParser { .success(def ?? .list([]), $0) })])
-    }
+    // Field absence is represented by Grammar.Multiplicity.optional,
+    // not by an alternative that succeeds without consuming input.
 }
 
     enum Separator: Sendable { case comma, semicolon, newline, commaOrNewline, semicolonOrNewline, none }
@@ -77,6 +76,7 @@ public extension Grammar {
 
     enum Error: Swift.Error, Equatable, Sendable {
     case duplicate_node(String)
+    case reserved_field(node: String, field: String)
 }
 
 }
@@ -88,6 +88,9 @@ public struct Grammar: Sendable {
     public init(nodes: [GrammarNode], values: ParserComponents) throws {
         var indexed: [String: GrammarNode] = [:]
         for node in nodes {
+            guard !node.fields.contains(where: { $0.name == "_type" }) else {
+                throw GrammarError.reserved_field(node: node.name, field: "_type")
+            }
             guard indexed.updateValue(node, forKey: node.name) == nil else {
                 throw GrammarError.duplicate_node(node.name)
             }
