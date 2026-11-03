@@ -114,6 +114,9 @@ public extension Grammar {
         // Collect fields
         let body: AnyTokenParser<[(String, [SyntaxNode])]>
         switch n.order {
+        case .unordered where n.fields.isEmpty:
+            // No field parser exists to advance the cursor for an empty grammar.
+            body = AnyTokenParser { .success([], $0) }
         case .unordered:
             // Repeatedly parse any field; allow BLANK LINES between fields.
             let choices = n.fields.map { fieldShape($0) } // [(String, [SyntaxNode])]

@@ -379,6 +379,80 @@ extension ParsingTestSuite {
                 }
             }
 
+            Test("empty unordered grammars accept zero-field bodies") {
+                let valid: [(GrammarNode.Delim, String)] = [
+                    (.none, ""),
+                    (.braces, "{}"),
+                    (.brackets, "[]"),
+                    (.parens, "()")
+                ]
+
+                func parse(_ source: String, delimiter: GrammarNode.Delim) throws -> TokenParseResult<GrammarResult> {
+                    let grammar = try Grammar(
+                        nodes: [GrammarNode(
+                            name: "empty",
+                            delimiter: delimiter,
+                            order: .unordered,
+                            fields: []
+                        )],
+                        values: .basic(),
+                        child: { AnyTokenParser<SyntaxNode> { _ in .failure(Diagnostic("unused")) } }
+                    )
+                    var options = LexerOptions()
+                    options.emit_whitespace = false
+                    options.emit_newlines = false
+                    var lexer = Lexer(
+                        source: source,
+                        sets: LexingSets(keywords: []),
+                        options: options
+                    )
+                    let cursor = TokenCursor(lexedTokens: lexer.lexedTokens(), source: source)
+                    return GrammarCompiler.compile(grammar, node: "empty").parse(cursor)
+                }
+
+                for (delimiter, source) in valid {
+                    switch try parse(source, delimiter: delimiter) {
+                    case .failure(let diagnostic):
+                        try Expect.equal(true, false, "empty grammar must succeed: \(diagnostic)")
+                    case .success(let result, let next):
+                        if case .object(let name, let fields) = result {
+                            try Expect.equal(name, "empty", "empty node identity")
+                            try Expect.equal(fields.isEmpty, true, "no fields synthesized")
+                        } else {
+                            try Expect.equal(true, false, "expected empty object")
+                        }
+                        try Expect.equal(next.isEOF, true, "empty body consumed")
+                    }
+                }
+
+                for (delimiter, source) in [
+                    (GrammarNode.Delim.braces, "{ unexpected }"),
+                    (.brackets, "[unexpected]"),
+                    (.parens, "(unexpected)")
+                ] {
+                    switch try parse(source, delimiter: delimiter) {
+                    case .success:
+                        try Expect.equal(true, false, "nonempty body must not be accepted")
+                    case .failure:
+                        break
+                    }
+                }
+
+                switch try parse("unexpected", delimiter: .none) {
+                case .failure(let diagnostic):
+                    try Expect.equal(true, false, "unwrapped empty grammar should be an identity: \(diagnostic)")
+                case .success(let result, let next):
+                    if case .object(let name, let fields) = result {
+                        try Expect.equal(name, "empty", "unwrapped node identity")
+                        try Expect.equal(fields.isEmpty, true, "unwrapped object has no fields")
+                    } else {
+                        try Expect.equal(true, false, "expected unwrapped empty object")
+                    }
+                    try Expect.equal(next.index, 0, "unwrapped empty grammar consumes nothing")
+                    try Expect.equal(next.isEOF, false, "subsequent input remains available")
+                }
+            }
+
             Test("duplicate anonymous map keys fail without trapping") {
                 let grammar = try Grammar(
                     nodes: [GrammarNode(
