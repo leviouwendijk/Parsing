@@ -62,6 +62,81 @@ extension ParsingTestSuite {
                 }
             }
 
+            Test("registered grammar values are typed at the registration boundary") {
+                var components = ParserComponents.basic()
+                components.register("upper") {
+                    TokenParsers.identifier().map { SyntaxNode.string($0.uppercased()) }
+                }
+                let grammar = try Grammar(
+                    nodes: [GrammarNode(
+                        name: "values",
+                        delimiter: .none,
+                        order: .ordered,
+                        fields: [
+                            GrammarField("id", .val("ident")),
+                            GrammarField("upper", .val("upper")),
+                            GrammarField("enabled", .val("bool")),
+                            GrammarField("count", .val("int")),
+                            GrammarField("amount", .val("decimalLoose"))
+                        ]
+                    )],
+                    values: components
+                )
+                let source = #"id alpha upper beta enabled true count 4 amount "2,5""#
+                var options = LexerOptions()
+                options.emit_whitespace = false
+                options.emit_newlines = false
+                var lexer = Lexer(
+                    source: source,
+                    sets: LexingSets(keywords: ["id", "upper", "enabled", "count", "amount", "true"]),
+                    options: options
+                )
+                let cursor = TokenCursor(lexedTokens: lexer.lexedTokens(), source: source)
+                switch GrammarCompiler.compile(grammar, node: "values").parse(cursor) {
+                case .failure(let diagnostic):
+                    try Expect.equal(true, false, "registered values failed: \(diagnostic)")
+                case .success(let result, let next):
+                    if case .object("values", let fields) = result,
+                       case .atom("alpha")? = fields["id"]?.first,
+                       case .string("BETA")? = fields["upper"]?.first,
+                       case .boolean(true)? = fields["enabled"]?.first,
+                       case .number(let count)? = fields["count"]?.first,
+                       case .number(let amount)? = fields["amount"]?.first {
+                        try Expect.equal(count, Decimal(4), "integer remains numeric")
+                        try Expect.equal(amount, Decimal(25) / Decimal(10), "loose decimal remains numeric")
+                        try Expect.equal(next.isEOF, true, "all registered values consumed")
+                    } else {
+                        try Expect.equal(true, false, "expected typed registered syntax values")
+                    }
+                }
+
+                let missing = try Grammar(
+                    nodes: [GrammarNode(
+                        name: "missing",
+                        delimiter: .none,
+                        order: .ordered,
+                        fields: [GrammarField("key", .val("unregistered"))]
+                    )],
+                    values: components
+                )
+                let missingSource = "key value"
+                var missingLexer = Lexer(
+                    source: missingSource,
+                    sets: LexingSets(keywords: ["key"]),
+                    options: options
+                )
+                let missingCursor = TokenCursor(
+                    lexedTokens: missingLexer.lexedTokens(),
+                    source: missingSource
+                )
+                switch GrammarCompiler.compile(missing, node: "missing").parse(missingCursor) {
+                case .success:
+                    try Expect.equal(true, false, "unknown registration must fail")
+                case .failure(let diagnostic):
+                    try Expect.equal(diagnostic.message, "No value parser named unregistered", "missing parser diagnostic")
+                }
+            }
+
             Test("empty parser chains are valid identities") {
                 let parser: AnyTokenParser<[String]> = chain([])
                 let cursor = TokenCursor(lexedTokens: [], source: "")

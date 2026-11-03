@@ -6,8 +6,8 @@
 
 // // Register leaves
 // var parserComps = ParserComponents()
-// parserComps.register("identifier") { TokenParsers.identifier() }
-// parserComps.register("string") { TokenParsers.string() }
+// parserComps.register("identifier") { TokenParsers.identifier().map(SyntaxNode.atom) }
+// parserComps.register("string") { TokenParsers.string().map(SyntaxNode.string) }
 // parserComps.register("decimal") { /* as above */  }
 // parserComps.register("int") { /* ... */  }
 

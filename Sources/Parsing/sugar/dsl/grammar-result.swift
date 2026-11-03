@@ -21,17 +21,9 @@ public extension Grammar {
     // Turn a GrammarValue into AnyTokenParser<SyntaxNode>
     private static func compileValue(_ g: Grammar, _ v: GrammarValue) -> AnyTokenParser<SyntaxNode> {
         switch v {
-        case .val(let nm):
-            if let p: AnyTokenParser<String>  = g.values.make(nm) {
-                // Identifiers should stay atoms, not strings.
-                if nm == "ident" { return p.map(SyntaxNode.atom) }
-                return p.map(SyntaxNode.string)
-            }
-            if let p: AnyTokenParser<Decimal> = g.values.make(nm) { return p.map(SyntaxNode.number) }
-            if let p: AnyTokenParser<Int>     = g.values.make(nm) { return p.map { .number(Decimal($0)) } }
-            if let p: AnyTokenParser<Bool>    = g.values.make(nm) { return p.map(SyntaxNode.boolean) }
-            if let p: AnyTokenParser<SyntaxNode> = g.values.make(nm) { return p }
-            return AnyTokenParser { _ in .failure(Diagnostic("No value parser named \(nm)")) }
+        case .val(let name):
+            if let parser = g.values.make(name) { return parser }
+            return AnyTokenParser { _ in .failure(Diagnostic("No value parser named \(name)")) }
 
         case .node(let ref):
             return compile(g, node: ref).map { fold($0) }
