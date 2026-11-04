@@ -61,7 +61,7 @@ extension ParsingTestSuite {
                 let source = "alpha beta"
                 var lexer = Lexer(
                     source: source,
-                    sets: LexingSets(keywords: [])
+                    sets: Lexer.Vocabulary(keywords: [])
                 )
                 let lexed = lexer.lexedTokens()
                 var cursor = TokenCursor(

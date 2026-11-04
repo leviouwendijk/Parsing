@@ -1,6 +1,6 @@
 import Foundation
 
-/// Consume an optional **specific** token (matched by `.sameCase(as:)`) before `inner`.
+/// Consume an optional **specific** token (matched by `.samecase(as:)`) before `inner`.
 @inlinable
 public func optToken<T: Sendable>(
     _ want: Token,
@@ -8,7 +8,7 @@ public func optToken<T: Sendable>(
 ) -> AnyTokenParser<T> {
     AnyTokenParser<T> { ctx in
         var n = ctx
-        if let t = n.peek(), t.sameCase(as: want) { n.advance() }
+        if let t = n.peek(), t.samecase(as: want) { n.advance() }
         return inner.parse(n)
     }
 }

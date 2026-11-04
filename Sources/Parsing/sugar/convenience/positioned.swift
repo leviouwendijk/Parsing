@@ -10,7 +10,7 @@ public func positioned<T: Sendable>(_ inner: AnyTokenParser<T>) -> AnyTokenParse
         case .failure(let d): return .failure(d)
         case .success(let v, let next):
             guard let range = next.sourceRange(from: start) else {
-                return .failure(Diagnostic(
+                return .failure(c.diagnostic(
                     "Source provenance unavailable for positioned parser",
                     committed: true
                 ))

@@ -28,6 +28,33 @@ extension ParsingTestSuite {
                 }
                 try Expect.equal(cursor.restore(-1), false, "invalid marks rejected")
             }
+            Test("canonical atom failure carries exact UTF-8 diagnostics") {
+                let source = "é  alpha\r\n"
+                let spec = try Lexer.Specification(vocabulary: .init(keywords: []))
+                let cursor = TokenCursor(lexing: try spec.lex(source))
+                switch TokenParsers.number().parse(cursor) {
+                case .success:
+                    try Expect.true(false, "number parser must fail on an identifier")
+                case .failure(let diagnostic):
+                    try Expect.equal(diagnostic.utf8Range?.lowerBound.offset, 0, "byte start")
+                    try Expect.equal(diagnostic.utf8Range?.upperBound.offset, 2, "byte end")
+                    try Expect.true(diagnostic.render(using: cursor).contains("@"), "location is rendered")
+                }
+            }
+            Test("a committed token failure retains its original UTF-8 interval") {
+                let source = "é  alpha"
+                let spec = try Lexer.Specification(vocabulary: .init(keywords: []))
+                let cursor = TokenCursor(lexing: try spec.lex(source))
+                let parser = TokenParsers.number().cut()
+                switch parser.parse(cursor) {
+                case .success:
+                    try Expect.true(false, "number parser must fail")
+                case .failure(let diagnostic):
+                    try Expect.true(diagnostic.committed, "cut commits failure")
+                    try Expect.equal(diagnostic.utf8Range?.lowerBound.offset, 0, "byte start preserved")
+                    try Expect.equal(diagnostic.utf8Range?.upperBound.offset, 2, "byte end preserved")
+                }
+            }
             Test("failed parse preserves exact diagnostic through cuts") {
                 let source = "something"
                 let specification = try Lexer.Specification(vocabulary: .init(keywords: []))

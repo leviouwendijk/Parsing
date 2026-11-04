@@ -7,8 +7,8 @@ public struct Expect: TokenParser {
     public init(_ want: Token) { self.want = want }
     public func parse(_ c: TokenCursor) -> TokenParseResult<Token> {
         var cur = c
-        guard let t = cur.peek(), t.sameCase(as: want) else {
-            return .failure(Diagnostic("expected \(want)", range: c.currentRange))
+        guard let t = cur.peek(), t.samecase(as: want) else {
+            return .failure(c.diagnostic("expected \(want)"))
         }
         cur.advance()
         return .success(t, cur)
@@ -22,7 +22,7 @@ public struct PIdent: TokenParser {
     public func parse(_ c: TokenCursor) -> TokenParseResult<String> {
         var cur = c
         guard let t = cur.peek(), case let .identifier(name) = t else {
-            return .failure(Diagnostic("expected identifier"))
+            return .failure(c.diagnostic("expected identifier"))
         }
         cur.advance()
         return .success(name, cur)
@@ -37,7 +37,7 @@ public struct PKeyword: TokenParser {
     public func parse(_ c: TokenCursor) -> TokenParseResult<String> {
         var cur = c
         guard let t = cur.peek(), case let .keyword(k) = t, k == name else {
-            return .failure(Diagnostic("expected keyword '\(name)'"))
+            return .failure(c.diagnostic("expected keyword '\(name)'"))
         }
         cur.advance()
         return .success(name, cur)
@@ -51,7 +51,7 @@ public struct PNumber: TokenParser {
     public func parse(_ c: TokenCursor) -> TokenParseResult<Decimal> {
         var cur = c
         guard let t = cur.peek(), case let .number(n, _) = t else {
-            return .failure(Diagnostic("expected number"))
+            return .failure(c.diagnostic("expected number"))
         }
         cur.advance()
         return .success(n, cur)
@@ -65,7 +65,7 @@ public struct PString: TokenParser {
     public func parse(_ c: TokenCursor) -> TokenParseResult<String> {
         var cur = c
         guard let t = cur.peek(), case let .string(s) = t else {
-            return .failure(Diagnostic("expected string"))
+            return .failure(c.diagnostic("expected string"))
         }
         cur.advance()
         return .success(s, cur)
@@ -79,7 +79,7 @@ public struct PDate: TokenParser {
     public func parse(_ c: TokenCursor) -> TokenParseResult<String> {
         var cur = c
         guard let t = cur.peek(), case let .date_literal(d) = t else {
-            return .failure(Diagnostic("expected date literal"))
+            return .failure(c.diagnostic("expected date literal"))
         }
         cur.advance()
         return .success(d, cur)

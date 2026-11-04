@@ -111,6 +111,41 @@ public struct TokenCursor: Sendable {
         return current?.range
     }
 
+    /// Construct a failure at the current token without discarding canonical byte provenance.
+    public func diagnostic(_ message: String, committed: Bool = false) -> Diagnostic {
+        Diagnostic(
+            message,
+            range: currentRange,
+            utf8Range: currentUTF8Range,
+            committed: committed
+        )
+    }
+
+    /// Construct a failure for a consumed token span with exact UTF-8 provenance.
+    public func diagnostic(_ message: String, from mark: Int, committed: Bool = false) -> Diagnostic {
+        Diagnostic(
+            message,
+            range: sourceRange(from: mark),
+            utf8Range: utf8Range(from: mark),
+            committed: committed
+        )
+    }
+
+    /// Exact UTF-8 projection may be unavailable at grapheme/CRLF boundaries.
+    public func position(atUTF8 offset: Position.Offset<Position.Unit.UTF8>) -> Position? {
+        guard let textMap,
+              let character = try? textMap.convert(offset, to: Position.Unit.Character.self),
+              let coordinate = try? textMap.coordinate(at: character) else {
+            return nil
+        }
+        return Position(
+            uncheckedFile: filePath,
+            line: coordinate.line,
+            column: coordinate.column,
+            invocation: nil
+        )
+    }
+
     public var currentUTF8Range: Range<Position.Offset<Position.Unit.UTF8>>? {
         guard let locatedTokens, index >= 0, index < locatedTokens.count else {
             return current?.utf8Range

@@ -70,7 +70,7 @@ extension ParsingTestSuite {
 
             Test("DynamicallyParsable needs no unused cursor factory") {
                 let source = #"value "ok""#
-                var lexer = Lexer(source: source, sets: LexingSets(keywords: ["value"]))
+                var lexer = Lexer(source: source, sets: Lexer.Vocabulary(keywords: ["value"]))
                 let cursor = TokenCursor(lexedTokens: lexer.lexedTokens(), source: source)
                 switch try GrammarTestModel.parse(cursor) {
                 case .failure(let diagnostic):
@@ -98,12 +98,12 @@ extension ParsingTestSuite {
                     values: .basic()
                 )
                 let source = #"outer { nested inner { value "ok" } }"#
-                var options = LexerOptions()
-                options.emit_whitespace = false
-                options.emit_newlines = false
+                var options = Lexer.Options()
+                options.emit.whitespace = false
+                options.emit.newlines = false
                 var lexer = Lexer(
                     source: source,
-                    sets: LexingSets(keywords: ["outer", "nested", "inner", "value"]),
+                    sets: Lexer.Vocabulary(keywords: ["outer", "nested", "inner", "value"]),
                     options: options
                 )
                 let cursor = TokenCursor(lexedTokens: lexer.lexedTokens(), source: source)
@@ -143,12 +143,12 @@ extension ParsingTestSuite {
                     values: components
                 )
                 let source = #"id alpha upper beta enabled true count 4 amount "2,5""#
-                var options = LexerOptions()
-                options.emit_whitespace = false
-                options.emit_newlines = false
+                var options = Lexer.Options()
+                options.emit.whitespace = false
+                options.emit.newlines = false
                 var lexer = Lexer(
                     source: source,
-                    sets: LexingSets(keywords: ["id", "upper", "enabled", "count", "amount", "true"]),
+                    sets: Lexer.Vocabulary(keywords: ["id", "upper", "enabled", "count", "amount", "true"]),
                     options: options
                 )
                 let cursor = TokenCursor(lexedTokens: lexer.lexedTokens(), source: source)
@@ -182,7 +182,7 @@ extension ParsingTestSuite {
                 let missingSource = "key value"
                 var missingLexer = Lexer(
                     source: missingSource,
-                    sets: LexingSets(keywords: ["key"]),
+                    sets: Lexer.Vocabulary(keywords: ["key"]),
                     options: options
                 )
                 let missingCursor = TokenCursor(
@@ -221,11 +221,11 @@ extension ParsingTestSuite {
                 )
 
                 for (source, expected) in [("enabled true", true), ("enabled false", false)] {
-                    var options = LexerOptions()
-                    options.emit_whitespace = false
+                    var options = Lexer.Options()
+                    options.emit.whitespace = false
                     var lexer = Lexer(
                         source: source,
-                        sets: LexingSets(keywords: ["enabled", "true", "false"]),
+                        sets: Lexer.Vocabulary(keywords: ["enabled", "true", "false"]),
                         options: options
                     )
                     let cursor = TokenCursor(lexedTokens: lexer.lexedTokens(), source: source)
@@ -257,7 +257,7 @@ extension ParsingTestSuite {
                     )],
                     values: .basic()
                 )
-                var lexer = Lexer(source: "x", sets: LexingSets(keywords: ["x"]))
+                var lexer = Lexer(source: "x", sets: Lexer.Vocabulary(keywords: ["x"]))
                 let cursor = TokenCursor(lexedTokens: lexer.lexedTokens(), source: "x")
                 switch GrammarCompiler.compile(grammar, node: "root").parse(cursor) {
                 case .failure: break
@@ -267,10 +267,10 @@ extension ParsingTestSuite {
 
             Test("separated lists enforce separators and support a trailing separator") {
                 func parse(_ source: String, sep: GrammarSeparator = .comma, min: Int = 0) -> TokenParseResult<[String]> {
-                    var options = LexerOptions()
-                    options.emit_whitespace = false
-                    options.emit_newlines = false
-                    var lexer = Lexer(source: source, sets: LexingSets(keywords: []), options: options)
+                    var options = Lexer.Options()
+                    options.emit.whitespace = false
+                    options.emit.newlines = false
+                    var lexer = Lexer(source: source, sets: Lexer.Vocabulary(keywords: []), options: options)
                     let cursor = TokenCursor(lexedTokens: lexer.lexedTokens(), source: source)
                     return separatedList(item: AnyTokenParser(PIdent()), sep: sep, min: min).parse(cursor)
                 }
@@ -323,12 +323,12 @@ extension ParsingTestSuite {
                 )
 
                 func parse(_ source: String) -> TokenParseResult<GrammarResult> {
-                    var options = LexerOptions()
-                    options.emit_whitespace = false
-                    options.emit_newlines = false
+                    var options = Lexer.Options()
+                    options.emit.whitespace = false
+                    options.emit.newlines = false
                     var lexer = Lexer(
                         source: source,
-                        sets: LexingSets(keywords: ["settings", "values"]),
+                        sets: Lexer.Vocabulary(keywords: ["settings", "values"]),
                         options: options
                     )
                     let cursor = TokenCursor(lexedTokens: lexer.lexedTokens(), source: source)
@@ -402,12 +402,12 @@ extension ParsingTestSuite {
                 )
 
                 func parse(_ source: String) -> TokenParseResult<GrammarResult> {
-                    var options = LexerOptions()
-                    options.emit_whitespace = false
-                    options.emit_newlines = false
+                    var options = Lexer.Options()
+                    options.emit.whitespace = false
+                    options.emit.newlines = false
                     var lexer = Lexer(
                         source: source,
-                        sets: LexingSets(keywords: ["prefix", "start", "note", "alias", "end", "suffix"]),
+                        sets: Lexer.Vocabulary(keywords: ["prefix", "start", "note", "alias", "end", "suffix"]),
                         options: options
                     )
                     let cursor = TokenCursor(lexedTokens: lexer.lexedTokens(), source: source)
@@ -483,12 +483,12 @@ extension ParsingTestSuite {
                 )
 
                 func parse(_ source: String) -> TokenParseResult<GrammarResult> {
-                    var options = LexerOptions()
-                    options.emit_whitespace = false
-                    options.emit_newlines = false
+                    var options = Lexer.Options()
+                    options.emit.whitespace = false
+                    options.emit.newlines = false
                     var lexer = Lexer(
                         source: source,
-                        sets: LexingSets(keywords: ["first", "second", "note", "tag"]),
+                        sets: Lexer.Vocabulary(keywords: ["first", "second", "note", "tag"]),
                         options: options
                     )
                     let cursor = TokenCursor(lexedTokens: lexer.lexedTokens(), source: source)
@@ -567,12 +567,12 @@ extension ParsingTestSuite {
                         )],
                         values: .basic()
                     )
-                    var options = LexerOptions()
-                    options.emit_whitespace = false
-                    options.emit_newlines = false
+                    var options = Lexer.Options()
+                    options.emit.whitespace = false
+                    options.emit.newlines = false
                     var lexer = Lexer(
                         source: source,
-                        sets: LexingSets(keywords: []),
+                        sets: Lexer.Vocabulary(keywords: []),
                         options: options
                     )
                     let cursor = TokenCursor(lexedTokens: lexer.lexedTokens(), source: source)
@@ -624,10 +624,10 @@ extension ParsingTestSuite {
 
             Test("generic key-value pairs reject duplicate keys") {
                 func parse(_ source: String) -> TokenParseResult<[String: String]> {
-                    var options = LexerOptions()
-                    options.emit_whitespace = false
-                    options.emit_newlines = false
-                    var lexer = Lexer(source: source, sets: LexingSets(keywords: []), options: options)
+                    var options = Lexer.Options()
+                    options.emit.whitespace = false
+                    options.emit.newlines = false
+                    var lexer = Lexer(source: source, sets: Lexer.Vocabulary(keywords: []), options: options)
                     let cursor = TokenCursor(lexedTokens: lexer.lexedTokens(), source: source)
                     return keyValuePairs(allowedKeys: [], value: TokenParsers.string()).parse(cursor)
                 }
@@ -651,10 +651,10 @@ extension ParsingTestSuite {
 
             Test("recursive node maps reject duplicate keys") {
                 func parse(_ source: String) -> TokenParseResult<SyntaxNode> {
-                    var options = LexerOptions()
-                    options.emit_whitespace = false
-                    options.emit_newlines = false
-                    var lexer = Lexer(source: source, sets: LexingSets(keywords: []), options: options)
+                    var options = Lexer.Options()
+                    options.emit.whitespace = false
+                    options.emit.newlines = false
+                    var lexer = Lexer(source: source, sets: Lexer.Vocabulary(keywords: []), options: options)
                     let cursor = TokenCursor(lexedTokens: lexer.lexedTokens(), source: source)
                     let parser = recursiveNode(child: { TokenParsers.string().map(SyntaxNode.string) })
                     return parser.parse(cursor)
@@ -692,7 +692,7 @@ extension ParsingTestSuite {
                     values: .basic()
                 )
                 let source = #"pairs { a = "x"; a = "y" }"#
-                var lexer = Lexer(source: source, sets: LexingSets(keywords: ["pairs", "kv"]))
+                var lexer = Lexer(source: source, sets: Lexer.Vocabulary(keywords: ["pairs", "kv"]))
                 let cursor = TokenCursor(lexedTokens: lexer.lexedTokens(), source: source)
                 switch GrammarCompiler.compile(grammar, node: "pairs").parse(cursor) {
                 case .failure: break

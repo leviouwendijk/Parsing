@@ -12,11 +12,11 @@ extension ParsingTestSuite {
 
                 var tokenLexer = Lexer(
                     source: source,
-                    sets: LexingSets(keywords: [])
+                    sets: Lexer.Vocabulary(keywords: [])
                 )
                 var positionedLexer = Lexer(
                     source: source,
-                    sets: LexingSets(keywords: [])
+                    sets: Lexer.Vocabulary(keywords: [])
                 )
 
                 let tokens = tokenLexer.collectAllTokens()

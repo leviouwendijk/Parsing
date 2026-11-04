@@ -48,10 +48,16 @@ public struct Diagnostic: Sendable, Codable, Hashable, CustomStringConvertible {
     }
 
     public func render(using cursor: TokenCursor) -> String {
+        if let utf8Range {
+            if let position = cursor.position(atUTF8: utf8Range.lowerBound) {
+                return "\(severity): \(message) @ \(position)"
+            }
+            // Exact byte location is retained even when a logical column is undefined.
+            return "\(severity): \(message) @ utf8[\(utf8Range.lowerBound.offset)-\(utf8Range.upperBound.offset)]"
+        }
         guard let range, let position = cursor.position(at: range.start) else {
             return description
         }
-
         return "\(severity): \(message) @ \(position)"
     }
 }

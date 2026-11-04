@@ -85,6 +85,8 @@ public extension TokenParser {
                             InvariantParseFailure.message(for: error),
                             range: next.sourceRange(from: cursor.index)
                                 ?? cursor.currentRange,
+                            utf8Range: next.utf8Range(from: cursor.index)
+                                ?? cursor.currentUTF8Range,
                             committed: true
                         )
                     )

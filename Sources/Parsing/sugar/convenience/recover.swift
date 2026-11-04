@@ -18,17 +18,17 @@ public func recoverUntil(
         let mark = cursor.mark()
 
         while !current.isEOF, let token = current.peek() {
-            if (boundaries.contains(.newline) && token.sameCase(as: .newline)) ||
-               (boundaries.contains(.semicolon) && token.sameCase(as: .semicolon)) ||
-               (boundaries.contains(.rbrace) && token.sameCase(as: .right_brace)) ||
-               (boundaries.contains(.rbracket) && token.sameCase(as: .right_bracket)) {
+            if (boundaries.contains(.newline) && token.samecase(as: .newline)) ||
+               (boundaries.contains(.semicolon) && token.samecase(as: .semicolon)) ||
+               (boundaries.contains(.rbrace) && token.samecase(as: .right_brace)) ||
+               (boundaries.contains(.rbracket) && token.samecase(as: .right_bracket)) {
                 break
             }
             current.advance()
         }
 
         return .success(
-            Diagnostic(message, range: current.sourceRange(from: mark)),
+            current.diagnostic(message, from: mark),
             current
         )
     }

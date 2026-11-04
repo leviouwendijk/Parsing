@@ -93,9 +93,8 @@ public extension TokenParser {
                 case .success(let output, let next):
                     guard next.index > cur.index else {
                         return .failure(
-                            Diagnostic(
+                            cur.diagnostic(
                                 "repeated parser did not consume input",
-                                range: cur.currentRange,
                                 committed: true
                             )
                         )
@@ -109,9 +108,7 @@ public extension TokenParser {
                     return acc.count >= min
                         ? .success(acc, cur)
                         : .failure(
-                            Diagnostic(
-                                "expected at least \(min) occurrence(s)"
-                            )
+                            cur.diagnostic("expected at least \(min) occurrence(s)")
                         )
                 }
             }
@@ -223,7 +220,7 @@ public extension TokenParser {
         let a = AnyTokenParser(p)
         return AnyTokenParser<Void> { c in
             switch a.parse(c) {
-            case .success:            return .failure(Diagnostic("unexpected token"))
+            case .success:            return .failure(c.diagnostic("unexpected token"))
             case .failure(let d):  return d.committed ? .failure(d) : .success((), c)
             }
         }

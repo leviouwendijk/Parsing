@@ -20,7 +20,7 @@ public func tokenNoop() -> AnyTokenParser<Void> {
 public func tokenCut<T: Sendable>(
     _ message: String
 ) -> AnyTokenParser<T> {
-    AnyTokenParser { _ in
-        .failure(Diagnostic(message, committed: true))
+    AnyTokenParser { cursor in
+        .failure(cursor.diagnostic(message, committed: true))
     }
 }

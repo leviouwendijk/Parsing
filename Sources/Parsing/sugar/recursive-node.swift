@@ -51,9 +51,9 @@ public func recursiveNode(
         var cur = c
         let start = cur.mark()
         while let t = cur.peek(),
-              !t.sameCase(as: .newline),
-              !t.sameCase(as: .right_brace),
-              !t.sameCase(as: .right_bracket) {
+              !t.samecase(as: .newline),
+              !t.samecase(as: .right_brace),
+              !t.samecase(as: .right_bracket) {
             cur.advance()
         }
         guard let range = cur.sourceRange(from: start) else {
