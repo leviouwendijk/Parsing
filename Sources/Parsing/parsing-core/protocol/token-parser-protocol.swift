@@ -125,7 +125,7 @@ public extension TokenParser {
             case .success(let o, let next): return .success(o, next)
             case .failure(let d):
                 // The cursor is a value. Clear the cut explicitly for alternatives.
-                return .failure(Diagnostic(d.message, severity: d.severity, range: d.range, committed: false))
+                return .failure(d.withCommitted(false))
             }
         }
     }
@@ -168,12 +168,7 @@ public extension TokenParser {
                 case .success(let second, let final):
                     return .success((first, second), final)
                 case .failure(let diagnostic):
-                    return .failure(Diagnostic(
-                        diagnostic.message,
-                        severity: diagnostic.severity,
-                        range: diagnostic.range,
-                        committed: true
-                    ))
+                    return .failure(diagnostic.withCommitted(true))
                 }
             }
         }
@@ -202,7 +197,7 @@ public extension TokenParser {
             case .failure(let d):
                 let base = d.message.isEmpty ? message() : d.message
                 return .failure(
-                    Diagnostic(base, severity: d.severity, range: d.range, committed: true)
+                    d.withCommitted(true, message: base)
                 )
             }
         }

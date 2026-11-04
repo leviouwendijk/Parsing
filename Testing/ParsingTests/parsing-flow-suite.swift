@@ -6,6 +6,7 @@ enum ParsingTestSuite {
         title: "Parsing tests"
     ) {
         tokenCursorProvenanceSuite
+        canonicalLexingSuite
         publicAPISuite
         grammarCorrectnessSuite
         tokenCompatibilitySuite

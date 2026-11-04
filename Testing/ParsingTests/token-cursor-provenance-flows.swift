@@ -27,6 +27,36 @@ extension ParsingTestSuite {
                 }
             }
 
+            Test("located token parsing carries exact UTF-8 ranges") {
+                let source = "é alpha"
+                var lexer = Lexer(source: source, sets: .init(keywords: []))
+                let cursor = TokenCursor(lexedTokens: lexer.lexedTokens(), source: source)
+                switch TokenParsers.identifier().located().parse(cursor) {
+                case .failure(let diagnostic):
+                    try Expect.equal(true, false, diagnostic.message)
+                case .success(let result, _):
+                    try Expect.equal(result.value, "é", "parsed Unicode identifier")
+                    try Expect.equal(result.range.lowerBound.offset, 0, "UTF-8 start")
+                    try Expect.equal(result.range.upperBound.offset, 2, "UTF-8 end")
+                }
+                let legacy = LexedToken(
+                    token: .identifier("unlocated"),
+                    range: PositionRange(uncheckedStart: .init(0), uncheckedEnd: .init(9))
+                )
+                let eof = LexedToken(
+                    token: .eof,
+                    range: PositionRange(uncheckedStart: .init(9), uncheckedEnd: .init(9))
+                )
+                switch TokenParsers.identifier().located().parse(
+                    TokenCursor(lexedTokens: [legacy, eof])
+                ) {
+                case .success:
+                    try Expect.equal(true, false, "legacy unlocated cursor must fail")
+                case .failure(let diagnostic):
+                    try Expect.equal(diagnostic.committed, true, "missing provenance is fatal")
+                }
+            }
+
             Test("cursor preserves token ergonomics while deriving exact source ranges") {
                 let source = "alpha beta"
                 var lexer = Lexer(

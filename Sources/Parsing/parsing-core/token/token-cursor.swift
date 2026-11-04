@@ -3,12 +3,40 @@ import Position
 
 public struct TokenCursor: Sendable {
     public let tokens: [Token]
+    public let locatedTokens: [LocatedToken]?
+    public let textMap: Position.TextMap?
     public let lexedTokens: [LexedToken]?
     public let lineTable: LineTable?
     public let filePath: String?
     public var index: Int = 0
 
-    private let legacyLineMap: [Int]?
+    let legacyLineMap: [Int]?
+
+    init(legacy_tokens: [Token], line_map: [Int]?, filePath: String?) {
+        self.tokens = legacy_tokens
+        self.locatedTokens = nil
+        self.textMap = nil
+        self.lexedTokens = nil
+        self.lineTable = nil
+        self.filePath = filePath
+        self.legacyLineMap = line_map
+    }
+
+    /// A canonical cursor with mandatory exact UTF-8 provenance.
+    public init(
+        lexing: LexingResult,
+        selection: LexingResult.Selection = .without_spacing,
+        filePath: String? = nil
+    ) {
+        let selected = lexing.select(selection)
+        self.tokens = selected.map(\.token)
+        self.locatedTokens = selected
+        self.textMap = Position.TextMap(source: lexing.source)
+        self.lexedTokens = nil
+        self.lineTable = nil
+        self.filePath = filePath
+        self.legacyLineMap = nil
+    }
 
     public init(
         lexedTokens: [LexedToken],
@@ -18,6 +46,8 @@ public struct TokenCursor: Sendable {
         self.tokens = lexedTokens.map(\.token)
         self.lexedTokens = lexedTokens
         self.lineTable = source.map(LineTable.init(text:))
+        self.locatedTokens = nil
+        self.textMap = source.map(Position.TextMap.init(source:))
         self.filePath = filePath
         self.legacyLineMap = nil
     }
@@ -30,44 +60,10 @@ public struct TokenCursor: Sendable {
         self.tokens = lexedTokens.map(\.token)
         self.lexedTokens = lexedTokens
         self.lineTable = lineTable
+        self.locatedTokens = nil
+        self.textMap = nil
         self.filePath = filePath
         self.legacyLineMap = nil
-    }
-
-    @available(
-        *,
-        deprecated,
-        message: "Use init(lexedTokens:source:filePath:) so source provenance is carried by LexedToken rather than a parallel line map."
-    )
-    public init(
-        _ tokens: [Token],
-        lineMap: [Int]? = nil,
-        filePath: String? = nil
-    ) {
-        self.tokens = tokens
-        self.lexedTokens = nil
-        self.lineTable = nil
-        self.filePath = filePath
-        self.legacyLineMap = lineMap
-    }
-
-    @available(
-        *,
-        deprecated,
-        message: "Use lexedTokens and their PositionRange provenance. This is a compatibility view only."
-    )
-    public var lineMap: [Int]? {
-        if let legacyLineMap {
-            return legacyLineMap
-        }
-
-        guard let lexedTokens, let lineTable else {
-            return nil
-        }
-
-        return lexedTokens.map {
-            lineTable.lineAndColumn(at: $0.range.start.offset).line
-        }
     }
 
     @inlinable
@@ -109,10 +105,24 @@ public struct TokenCursor: Sendable {
     }
 
     public var currentRange: PositionRange? {
-        current?.range
+        if let textMap, let range = currentUTF8Range {
+            return try? textMap.legacyRange(range)
+        }
+        return current?.range
+    }
+
+    public var currentUTF8Range: Range<Position.Offset<Position.Unit.UTF8>>? {
+        guard let locatedTokens, index >= 0, index < locatedTokens.count else {
+            return current?.utf8Range
+        }
+        return locatedTokens[index].range
     }
 
     public func sourceRange(from mark: Int) -> PositionRange? {
+        if let textMap, locatedTokens != nil {
+            guard let range = utf8Range(from: mark) else { return nil }
+            return try? textMap.legacyRange(range)
+        }
         guard let lexedTokens, !lexedTokens.isEmpty else {
             return nil
         }
@@ -134,6 +144,19 @@ public struct TokenCursor: Sendable {
 
     /// Exact byte span of consumed lexemes; returns nil when unavailable.
     public func utf8Range(from mark: Int) -> Range<Position.Offset<Position.Unit.UTF8>>? {
+        if let locatedTokens {
+            guard !locatedTokens.isEmpty, mark >= 0, mark <= index,
+                  index <= locatedTokens.count else { return nil }
+            if mark == locatedTokens.count {
+                let end = locatedTokens[locatedTokens.count - 1].range.upperBound
+                return end..<end
+            }
+            if index == mark {
+                let start = locatedTokens[mark].range.lowerBound
+                return start..<start
+            }
+            return locatedTokens[mark].range.lowerBound..<locatedTokens[index - 1].range.upperBound
+        }
         guard let lexedTokens, !lexedTokens.isEmpty,
               mark >= 0, mark <= index, index <= lexedTokens.count else {
             return nil
@@ -154,6 +177,16 @@ public struct TokenCursor: Sendable {
     }
 
     public func position(at sourceIndex: PositionIndex) -> Position? {
+        if let textMap,
+           let offset = try? Position.Offset<Position.Unit.Character>(sourceIndex.offset),
+           let coordinate = try? textMap.coordinate(at: offset) {
+            return Position(
+                uncheckedFile: filePath,
+                line: coordinate.line,
+                column: coordinate.column,
+                invocation: nil
+            )
+        }
         if let lineTable {
             return lineTable.position(
                 at: sourceIndex,
@@ -176,6 +209,16 @@ public struct TokenCursor: Sendable {
     }
 
     public func position() -> Position? {
+        if let textMap, let range = currentUTF8Range,
+           let character = try? textMap.convert(range.lowerBound, to: Position.Unit.Character.self),
+           let coordinate = try? textMap.coordinate(at: character) {
+            return Position(
+                uncheckedFile: filePath,
+                line: coordinate.line,
+                column: coordinate.column,
+                invocation: nil
+            )
+        }
         guard let currentRange else {
             return nil
         }
@@ -183,25 +226,5 @@ public struct TokenCursor: Sendable {
         return position(at: currentRange.start)
     }
 
-    @available(
-        *,
-        deprecated,
-        message: "Use position(). loc(column:) was line-map based and could not represent exact source columns."
-    )
-    public func loc(column: Int = 1) -> Position? {
-        if let position = position() {
-            return position
-        }
 
-        guard let legacyLineMap, index < legacyLineMap.count else {
-            return nil
-        }
-
-        return Position(
-            uncheckedFile: filePath,
-            line: legacyLineMap[index],
-            column: column,
-            invocation: nil
-        )
-    }
 }
