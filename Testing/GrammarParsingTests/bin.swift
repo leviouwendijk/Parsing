@@ -1,6 +1,10 @@
 import Foundation
 import enum Grammar.Grammar
 import GrammarParsing
+import GrammarSyntax
+import Position
+import Syntax
+import SyntaxLSP
 import Testing
 
 @main
@@ -30,6 +34,54 @@ enum GrammarParsingTestCLI {
             try Expect.equal(first.children[1].field, "name", "declared field")
             try Expect.equal(first.children[1].text, "alpha", "matched source text")
             try Expect.equal(first.children[3].field, "value", "value field")
+        }
+        Test("structured bridge retains fields, repetitions and canonical hierarchy") {
+            let compiled = try GrammarParser(language: language())
+            let source = "let alpha = beta\nlet gamma = delta"
+            let result = try compiled.parseStructured(source)
+            try Expect.equal(result.root.children.count, 2, "original hierarchy retained")
+            try Expect.equal(result.match.range.offsets, 0..<source.count, "exact source match")
+            try Expect.equal(result.match.captures.map(\.name),
+                             ["name", "value", "name", "value"], "repeated field ordering")
+            try Expect.equal(result.match.captures.map(\.value),
+                             ["alpha", "beta", "gamma", "delta"], "source-backed values")
+        }
+        Test("structured bridge rejects partial-grapheme legacy spans") {
+            let lower = try Position.Offset<Position.Unit.UTF8>(0)
+            let upper = try Position.Offset<Position.Unit.UTF8>(1)
+            let partial = GrammarParser.Node(name: "token", field: "part", text: "e",
+                                             range: lower..<upper)
+            try Expect.throwsError("Character bridge never rounds a combining sequence") {
+                _ = try partial.structuredMatch(in: "e\u{301}")
+            }
+        }
+        Test("grammar roles and exact UTF-16 LSP spans derive from one language") {
+            let grammar = try emojiLanguage()
+            let source = "\u{1F415}alpha\r\n\u{1F415}beta"
+            let output = try GrammarSyntaxProjection(language: grammar, source: source)
+            try Expect.equal(output.tree.children.count, 2, "two parsed items")
+            let lexical = output.document.captures.filter {
+                $0.layer == .lexical && $0.kind.name != "@extra"
+            }
+            let fields = output.document.captures.filter {
+                $0.layer == .syntactic && $0.kind.name == "@field:name"
+            }
+            try Expect.equal(lexical.count, 4, "four significant lexemes")
+            try Expect.equal(fields.count, 2, "two field captures")
+            let legend = try SyntaxLSP.Legend(types: ["keyword", "variable"])
+            let tokens = try SyntaxLSP.project(document: output.document, legend: legend, rules: [
+                .init(selector: .init(role: .keyword, layer: .lexical), type: "keyword"),
+                .init(selector: .init(role: .identifier, layer: .lexical), type: "variable")
+            ])
+            try Expect.equal(SyntaxLSP.encode(tokens), [
+                0, 0, 2, 0, 0,
+                0, 2, 5, 1, 0,
+                1, 0, 2, 0, 0,
+                0, 2, 4, 1, 0
+            ], "emoji UTF-16 units and CRLF split")
+        }
+        Test("Tree-sitter and native parsing agree on supported grammar fixtures") {
+            try GrammarBackendParity.run(language())
         }
         Test("syntax failure includes exact UTF-8 source range") {
             let compiled = try GrammarParser(language: language())
@@ -83,6 +135,19 @@ enum GrammarParsingTestCLI {
         }
     }
 
+    private static func emojiLanguage() throws -> Grammar.Language {
+        try Grammar.Language(name: "emoji_assignments", start: "file", productions: [
+            .init(name: "file", expression: .repeat1(.symbol(.production("item")))),
+            .init(name: "item", expression: .sequence([
+                .symbol(.terminal("glyph")),
+                .field("name", .symbol(.terminal("identifier")))
+            ]))
+        ], terminals: [
+            .init(name: "glyph", pattern: .literal("\u{1F415}"), role: "keyword"),
+            .init(name: "identifier", pattern: .regex("[a-z]+"), role: "variable")
+        ], extras: [.pattern("[ \\t\\r\\n]+")])
+    }
+
     private static func language() throws -> Grammar.Language {
         try Grammar.Language(name: "assignment", start: "file", productions: [
             .init(name: "file", expression: .repeat1(.symbol(.production("assignment")))),
@@ -95,6 +160,6 @@ enum GrammarParsingTestCLI {
         ], terminals: [
             .init(name: "let_keyword", pattern: .literal("let"), role: "keyword"),
             .init(name: "identifier", pattern: .regex("[a-z]+"), role: "variable")
-        ], extras: [.pattern("[ \\t\\r\\n]+")])
+        ], extras: [.pattern("[ \\t\\r\\n]+")], word: "identifier")
     }
 }

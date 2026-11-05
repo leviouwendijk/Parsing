@@ -12,6 +12,7 @@ let package = Package(
         .executable(name: "t_parsing", targets: ["ParsingTests"]),
         .executable(name: "t_grammar_parsing", targets: ["GrammarParsingTests"]),
         .library(name: "GrammarParsing", targets: ["GrammarParsing"]),
+        .library(name: "GrammarSyntax", targets: ["GrammarSyntax"]),
         .library(
             name: "Parsing",
             targets: ["Parsing"]
@@ -26,6 +27,7 @@ let package = Package(
         .package(url: "https://github.com/leviouwendijk/Position.git", branch: "master"),
         .package(url: "https://github.com/leviouwendijk/Lexing.git", branch: "master"),
         .package(url: "https://github.com/leviouwendijk/Grammar.git", branch: "master"),
+        .package(url: "https://github.com/leviouwendijk/Syntax.git", branch: "master"),
         .package(url: "https://github.com/leviouwendijk/Testing.git", branch: "master"),
     ],
     targets: [
@@ -46,11 +48,25 @@ let package = Package(
                 .product(name: "Position", package: "Position")
             ]
         ),
+        .target(
+            name: "GrammarSyntax",
+            dependencies: [
+                "GrammarParsing",
+                .product(name: "Grammar", package: "Grammar"),
+                .product(name: "Lexing", package: "Lexing"),
+                .product(name: "Syntax", package: "Syntax")
+            ]
+        ),
         .executableTarget(
             name: "GrammarParsingTests",
             dependencies: [
                 "GrammarParsing",
+                "GrammarSyntax",
                 .product(name: "Grammar", package: "Grammar"),
+                .product(name: "GrammarTreeSitter", package: "Grammar"),
+                .product(name: "Syntax", package: "Syntax"),
+                .product(name: "SyntaxLSP", package: "Syntax"),
+                .product(name: "Position", package: "Position"),
                 .product(name: "Testing", package: "Testing")
             ],
             path: "Testing/GrammarParsingTests"

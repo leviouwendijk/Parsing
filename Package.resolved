@@ -1,5 +1,5 @@
 {
-  "originHash" : "dbf0dd372d4585254f839059c232bad9499dbc507735296053b20c9d0ac1a956",
+  "originHash" : "7198e9f71492e791b56a6c8ce985ab6216e4c7be10fbe1f24af21603291c153c",
   "pins" : [
     {
       "identity" : "atomos",
@@ -53,6 +53,15 @@
       "state" : {
         "branch" : "master",
         "revision" : "a3b2d62e52cb7e061d5a5cdadb63f4d31684dd4d"
+      }
+    },
+    {
+      "identity" : "syntax",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/leviouwendijk/Syntax.git",
+      "state" : {
+        "branch" : "master",
+        "revision" : "2e0e85f68411c88246fcdf19c2c237c6e7a76bd4"
       }
     },
     {
