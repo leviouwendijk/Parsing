@@ -10,6 +10,8 @@ let package = Package(
     ],
     products: [
         .executable(name: "t_parsing", targets: ["ParsingTests"]),
+        .executable(name: "t_grammar_parsing", targets: ["GrammarParsingTests"]),
+        .library(name: "GrammarParsing", targets: ["GrammarParsing"]),
         .library(
             name: "Parsing",
             targets: ["Parsing"]
@@ -23,6 +25,7 @@ let package = Package(
         .package(url: "https://github.com/leviouwendijk/Primitives.git", branch: "master"),
         .package(url: "https://github.com/leviouwendijk/Position.git", branch: "master"),
         .package(url: "https://github.com/leviouwendijk/Lexing.git", branch: "master"),
+        .package(url: "https://github.com/leviouwendijk/Grammar.git", branch: "master"),
         .package(url: "https://github.com/leviouwendijk/Testing.git", branch: "master"),
     ],
     targets: [
@@ -33,6 +36,24 @@ let package = Package(
                 .product(name: "Position", package: "Position"),
                 .product(name: "Lexing", package: "Lexing"),
             ]
+        ),
+        .target(
+            name: "GrammarParsing",
+            dependencies: [
+                "Parsing",
+                .product(name: "Grammar", package: "Grammar"),
+                .product(name: "Lexing", package: "Lexing"),
+                .product(name: "Position", package: "Position")
+            ]
+        ),
+        .executableTarget(
+            name: "GrammarParsingTests",
+            dependencies: [
+                "GrammarParsing",
+                .product(name: "Grammar", package: "Grammar"),
+                .product(name: "Testing", package: "Testing")
+            ],
+            path: "Testing/GrammarParsingTests"
         ),
         .executableTarget(
             name: "ParsingTests",

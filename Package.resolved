@@ -1,5 +1,5 @@
 {
-  "originHash" : "35413aced24baf4093334c3cab97f6ac2d9bae763f6440f6d08490262e93af84",
+  "originHash" : "dbf0dd372d4585254f839059c232bad9499dbc507735296053b20c9d0ac1a956",
   "pins" : [
     {
       "identity" : "atomos",
@@ -11,12 +11,21 @@
       }
     },
     {
+      "identity" : "grammar",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/leviouwendijk/Grammar.git",
+      "state" : {
+        "branch" : "master",
+        "revision" : "34a3364ccd291940e3ab8305b41d8c1067a9a666"
+      }
+    },
+    {
       "identity" : "lexing",
       "kind" : "remoteSourceControl",
       "location" : "https://github.com/leviouwendijk/Lexing.git",
       "state" : {
         "branch" : "master",
-        "revision" : "36fe27df513c052cf1a0a99cfd5a44a278d48fc7"
+        "revision" : "e24d4e4844db87667eb99809b9e9a060f226ec2d"
       }
     },
     {
