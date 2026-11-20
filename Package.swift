@@ -22,6 +22,7 @@ let package = Package(
         .package(url: "https://github.com/leviouwendijk/Lexing.git", branch: "master"),
         .package(url: "https://github.com/leviouwendijk/Grammar.git", branch: "master"),
         .package(url: "https://github.com/leviouwendijk/Syntax.git", branch: "master"),
+        .package(url: "https://github.com/leviouwendijk/Errors.git", branch: "master"),
     ],
     targets: [
         .target(
@@ -30,12 +31,14 @@ let package = Package(
                 .product(name: "Primitives", package: "Primitives"),
                 .product(name: "Position", package: "Position"),
                 .product(name: "Lexing", package: "Lexing"),
+                .product(name: "Errors", package: "Errors"),
             ]
         ),
         .target(
             name: "GrammarParsing",
             dependencies: [
                 "Parsing",
+                .product(name: "Errors", package: "Errors"),
                 .product(name: "Grammar", package: "Grammar"),
                 .product(name: "Lexing", package: "Lexing"),
                 .product(name: "Position", package: "Position")

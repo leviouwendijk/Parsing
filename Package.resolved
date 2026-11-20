@@ -1,5 +1,5 @@
 {
-  "originHash" : "abaf0b1fafc0b4f3d8c86675c32b57cc50d145168bd5c68939cc64fd30ed3829",
+  "originHash" : "9314d666ddd83ce008a504b36e4149998bb41766e02b4e3c52eab7c9f17ff42d",
   "pins" : [
     {
       "identity" : "dsl",
@@ -61,7 +61,7 @@
       "location" : "https://github.com/leviouwendijk/Schema.git",
       "state" : {
         "branch" : "master",
-        "revision" : "55a01beaeca1d190963fdead3e736c9ce1341abe"
+        "revision" : "e45634af56b8f5ffe8a12a2922675e713dc38190"
       }
     },
     {

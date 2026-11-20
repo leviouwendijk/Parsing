@@ -1,3 +1,4 @@
+import Errors
 import Foundation
 import enum Grammar.Grammar
 import GrammarParsing
@@ -88,9 +89,15 @@ enum GrammarParsingTestCLI {
             do {
                 _ = try compiled.parse("let = value")
                 try Expect.true(false, "expected failed identifier")
-            } catch GrammarParser.Failure.syntax(let diagnostic) {
+            } catch let failure as GrammarParser.Failure {
+                guard case .syntax(let diagnostic) = failure else { throw failure }
                 try Expect.equal(diagnostic.utf8Range?.lowerBound.offset, 4,
                                  "failure at equals token")
+                let report = failure.report
+                try Expect.equal(report.diagnostic.identity?.raw, "parsing.grammar.syntax", "code")
+                try Expect.equal(report.diagnostic[field: "source.offset"]?.value, .integer(4), "offset")
+                try Expect.equal(report.presentation.reason, diagnostic.message, "the diagnostic is the reason")
+                try Expect.equal(report.effectiveDisposition, .invalid_input, "the source must change")
             }
         }
         Test("repetition preserves partially matched production diagnostics") {
